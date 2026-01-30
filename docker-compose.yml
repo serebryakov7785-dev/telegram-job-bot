@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    container_name: jobs_bot
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      # Сохраняем базу данных и логи на хосте
+      - ./jobs_database.db:/app/jobs_database.db
+      - ./backups:/app/backups
+      - ./bot.json.log:/app/bot.json.log
+    ports:
+      - "8000:8000" # Порт для метрик Prometheus

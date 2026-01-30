@@ -1,0 +1,9 @@
+pyTelegramBotAPI
+python-dotenv
+requests
+sentry-sdk
+prometheus-client
+pytest
+pytest-cov
+sphinx
+sphinx-rtd-theme
