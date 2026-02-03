@@ -1,12 +1,14 @@
-﻿# keyboards.py
+# keyboards.py
 from telebot import types
+
 
 def main_menu():
     """Главное меню (до выбора роли)"""
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.row('👤 Я ищу работу', '🏢 Я работодатель')
-    markup.row('ℹ️ О боте', '📞 Поддержка')
+    markup.row('ℹ️ О боте')
     return markup
+
 
 def seeker_menu(is_registered=False):
     """Меню соискателя ДО авторизации (после выбора роли)"""
@@ -15,6 +17,7 @@ def seeker_menu(is_registered=False):
     markup.row('🏠 На главную')
     return markup
 
+
 def employer_menu(is_registered=False):
     """Меню работодателя ДО авторизации (после выбора роли)"""
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -22,26 +25,29 @@ def employer_menu(is_registered=False):
     markup.row('🏠 На главную')
     return markup
 
+
 def seeker_main_menu():
     """Главное меню для авторизованного соискателя"""
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.row('🔍 Найти вакансии', '📄 Мое резюме')
-    markup.row('📋 Мои отклики', '⚙️ Настройки', '💬 Чат')
-    markup.row('🚪 Выйти')
+    markup.row('📋 Мои отклики', '💬 Чат')
+    markup.row('⚙️ Настройки', '📞 Поддержка', '🚪 Выйти')
     return markup
+
 
 def employer_main_menu():
     """Главное меню для авторизованного работодателя"""
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.row('➕ Создать вакансию', '📋 Мои вакансии')
     markup.row('👥 Найти сотрудников', '💬 Чат')
-    markup.row('⚙️ Настройки компании', '🚪 Выйти')
+    markup.row('⚙️ Настройки', '📞 Поддержка', '🚪 Выйти')
     return markup
+
 
 def settings_menu(role: str):
     """Меню настроек"""
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    
+
     if role == 'seeker':
         markup.row('🎯 Профессия', '🗣 Языки', '🎨 Навыки')
         markup.row('🎓 Образование', '💼 Опыт', '📊 Статус')
@@ -49,8 +55,9 @@ def settings_menu(role: str):
     else:
         markup.row('🗑️ Удалить компанию')
         markup.row('↩️ Назад в меню')
-    
+
     return markup
+
 
 def seeker_status_menu():
     """Меню выбора статуса соискателя"""
@@ -60,28 +67,21 @@ def seeker_status_menu():
     markup.row('↩️ Назад в настройки')
     return markup
 
+
 def seeker_submenu(field_name: str, current_value: str):
     """Подменю для настроек соискателя (профессия/образование/опыт/навыки)"""
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    
-    # Заголовок подменю
-    icons = {
-        'profession': '🎯',
-        'education': '🎓', 
-        'languages': '🗣',
-        'experience': '💼',
-        'skills': '🎨'
-    }
-    icon = icons.get(field_name, '📋')
-    
-    # Кнопки действий
-    if current_value and current_value not in ['Не указана', 'Не указано', 'Не указаны', 'Нет опыта']:
-        markup.row('✏️ Изменить')
-    else:
+
+    empty_values = ['Не указана', 'Не указано', 'Не указаны', 'Нет опыта', None, '']
+
+    if current_value in empty_values:
         markup.row('➕ Добавить')
-    
+    else:
+        markup.row('✏️ Изменить')
+
     markup.row('↩️ Назад в настройки')
     return markup
+
 
 def cancel_keyboard():
     """Клавиатура с кнопкой отмены"""
@@ -89,13 +89,16 @@ def cancel_keyboard():
     markup.row('❌ Отмена')
     return markup
 
+
 def admin_menu():
     """Меню администратора"""
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.row('📊 Статистика', '👥 Пользователи')
     markup.row('📢 Рассылка', '💾 Бэкап')
-    markup.row('⚙️ Настройки бота', '🏠 Главное меню')
+    markup.row('⚠️ Жалобы', '⚙️ Настройки бота')
+    markup.row('🏠 Главное меню')
     return markup
+
 
 def admin_users_menu():
     """Меню управления пользователями"""
@@ -104,12 +107,22 @@ def admin_users_menu():
     markup.row('🔎 Поиск пользователя', '↩️ Назад в админку')
     return markup
 
+
+def support_menu():
+    """Меню поддержки"""
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.row('🐛 Ошибка', '⚠️ Жалоба')
+    markup.row('🏠 Главное меню')
+    return markup
+
+
 def recovery_menu():
     """Меню восстановления доступа"""
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.row('📧 Восстановить пароль')
     markup.row('🏠 Главное меню')
     return markup
+
 
 def job_type_menu():
     """Меню выбора типа занятости"""
@@ -119,11 +132,13 @@ def job_type_menu():
     markup.row('❌ Отмена')
     return markup
 
+
 def vacancy_actions(vacancy_id: int):
     """Клавиатура действий с вакансией"""
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("📝 Откликнуться", callback_data=f"apply_{vacancy_id}"))
     return markup
+
 
 def employer_invite_keyboard(seeker_telegram_id: int, vacancy_id: int = None):
     """Клавиатура для приглашения соискателя работодателем"""
@@ -134,6 +149,7 @@ def employer_invite_keyboard(seeker_telegram_id: int, vacancy_id: int = None):
         callback_data = f"invite_{seeker_telegram_id}"
     markup.add(types.InlineKeyboardButton("✉️ Пригласить", callback_data=callback_data))
     return markup
+
 
 def my_vacancy_actions(vacancy_id: int):
     """Клавиатура действий с МОЕЙ вакансией (для работодателя)"""
@@ -146,6 +162,7 @@ def my_vacancy_actions(vacancy_id: int):
     markup.add(*buttons)
     return markup
 
+
 def delete_confirmation_keyboard(vacancy_id: int):
     """Клавиатура подтверждения удаления вакансии"""
     markup = types.InlineKeyboardMarkup()
@@ -155,11 +172,13 @@ def delete_confirmation_keyboard(vacancy_id: int):
     )
     return markup
 
+
 def contact_employer_keyboard(employer_telegram_id: int):
     """Клавиатура для связи с работодателем"""
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("💬 Написать сообщение", callback_data=f"start_chat_{employer_telegram_id}"))
     return markup
+
 
 def contact_seeker_keyboard(seeker_telegram_id: int):
     """Клавиатура для связи с соискателем"""
@@ -167,11 +186,13 @@ def contact_seeker_keyboard(seeker_telegram_id: int):
     markup.add(types.InlineKeyboardButton("💬 Написать сообщение", callback_data=f"start_chat_{seeker_telegram_id}"))
     return markup
 
+
 def reply_keyboard(target_id: int):
     """Клавиатура для ответа"""
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("↩️ Ответить", callback_data=f"start_chat_{target_id}"))
     return markup
+
 
 def stop_chat_keyboard():
     """Клавиатура завершения чата"""

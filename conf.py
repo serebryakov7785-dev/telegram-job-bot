@@ -25,7 +25,7 @@ language = 'ru'
 
 # -- Options for HTML output -------------------------------------------------
 try:
-    import sphinx_rtd_theme
+    import sphinx_rtd_theme  # noqa: F401
     html_theme = 'sphinx_rtd_theme'
 except ImportError:
     html_theme = 'alabaster'

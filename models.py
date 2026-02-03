@@ -1,7 +1,8 @@
-﻿# models.py
+# models.py
 from dataclasses import dataclass
 from typing import Optional
 from datetime import datetime
+
 
 @dataclass
 class JobSeeker:
@@ -20,6 +21,7 @@ class JobSeeker:
     status: str = "active"
     created_at: Optional[datetime] = None
 
+
 @dataclass
 class Employer:
     """Модель работодателя (БЕЗ ЛОГИНА)"""
@@ -31,6 +33,7 @@ class Employer:
     city: str = "Не указан"
     description: str = "Описание не указано"
     created_at: Optional[datetime] = None
+
 
 def dict_to_job_seeker(data: dict) -> JobSeeker:
     """Преобразование словаря в модель JobSeeker"""
@@ -49,6 +52,7 @@ def dict_to_job_seeker(data: dict) -> JobSeeker:
         status=data.get('status', 'active'),
         created_at=data.get('created_at')
     )
+
 
 def dict_to_employer(data: dict) -> Employer:
     """Преобразование словаря в модель Employer"""

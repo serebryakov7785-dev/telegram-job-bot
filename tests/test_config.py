@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch
 import config
-import logging
+
 
 def test_init_config_success():
     """Проверка успешной инициализации конфигурации"""
@@ -10,6 +10,7 @@ def test_init_config_success():
          patch('config.ADMIN_IDS', [123456]):
         assert config.init_config() is True
 
+
 def test_init_config_no_token():
     """Проверка выхода при отсутствии токена"""
     # Патчим TOKEN как None
@@ -17,6 +18,7 @@ def test_init_config_no_token():
         with pytest.raises(SystemExit) as excinfo:
             config.init_config()
         assert excinfo.value.code == 1
+
 
 def test_init_config_no_admins(caplog):
     """Проверка предупреждения при отсутствии админов"""

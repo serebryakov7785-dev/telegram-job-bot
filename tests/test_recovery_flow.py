@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 from handlers.auth.login_auth import LoginAuth
 
+
 class TestRecoveryFlow:
     @pytest.fixture
     def bot(self):
@@ -60,4 +61,4 @@ class TestRecoveryFlow:
             handler.bot.send_message.assert_called()
             text = handler.bot.send_message.call_args[0][1]
             assert "Инструкции отправлены" in text
-            assert "fou***@user.com" in text # Check email masking
+            assert "fou***@user.com" in text  # Check email masking

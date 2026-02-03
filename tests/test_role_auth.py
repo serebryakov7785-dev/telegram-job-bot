@@ -2,11 +2,12 @@ import pytest
 from unittest.mock import MagicMock, patch
 from handlers.auth.role_auth import RoleAuth
 
+
 class TestRoleAuth:
     @pytest.fixture
     def bot(self):
-        return MagicMock()
-        bot.send_message.return_value = MagicMock()
+        mock_bot = MagicMock()
+        return mock_bot
 
     @pytest.fixture
     def handler(self, bot):
@@ -25,9 +26,9 @@ class TestRoleAuth:
         message.text = '👤 Я ищу работу'
         with patch('database.get_user_by_id', return_value=None), \
              patch('database.set_user_state') as mock_set:
-            
+
             handler.handle_role_selection(message)
-            
+
             mock_set.assert_called_with(456, {'role': 'seeker'})
             handler.bot.send_message.assert_called()
             assert "Панель соискателя" in handler.bot.send_message.call_args[0][1]
@@ -37,9 +38,9 @@ class TestRoleAuth:
         message.text = '🏢 Я работодатель'
         with patch('database.get_user_by_id', return_value=None), \
              patch('database.set_user_state') as mock_set:
-            
+
             handler.handle_role_selection(message)
-            
+
             mock_set.assert_called_with(456, {'role': 'employer'})
             handler.bot.send_message.assert_called()
             assert "Панель работодателя" in handler.bot.send_message.call_args[0][1]
@@ -77,9 +78,9 @@ class TestRoleAuth:
         """Попытка регистрации без выбора роли"""
         with patch('database.get_user_by_id', return_value=None), \
              patch('database.get_user_state', return_value={}):
-            
+
             handler.handle_registration_start(message)
-            
+
             handler.bot.send_message.assert_called()
             assert "Сначала выберите роль" in handler.bot.send_message.call_args[0][1]
 
@@ -105,9 +106,9 @@ class TestRoleAuth:
              patch('database.get_user_state', return_value={'role': 'seeker'}), \
              patch('utils.generate_captcha', return_value=("2 + 2", 4)), \
              patch('database.set_user_state') as mock_set:
-            
+
             handler.handle_registration_start(message)
-            
+
             mock_set.assert_called()
             assert mock_set.call_args[0][1]['step'] == 'captcha'
             assert mock_set.call_args[0][1]['captcha_answer'] == 4
@@ -118,13 +119,13 @@ class TestRoleAuth:
         """Правильный ответ на капчу (соискатель)"""
         message.text = "4"
         user_state = {'role': 'seeker', 'captcha_answer': 4, 'step': 'captcha'}
-        
+
         with patch('database.get_user_state', return_value=user_state), \
              patch('utils.validate_captcha', return_value=True), \
              patch('database.set_user_state') as mock_set:
-            
+
             handler.process_captcha(message)
-            
+
             # Должен перейти к вводу телефона
             mock_set.assert_called()
             assert mock_set.call_args[0][1]['step'] == 'phone'
@@ -135,14 +136,14 @@ class TestRoleAuth:
         """Неправильный ответ на капчу"""
         message.text = "5"
         user_state = {'role': 'seeker', 'captcha_answer': 4, 'step': 'captcha'}
-        
+
         with patch('database.get_user_state', return_value=user_state), \
              patch('utils.validate_captcha', return_value=False), \
              patch('utils.generate_captcha', return_value=("3 + 3", 6)), \
              patch('database.set_user_state') as mock_set:
-            
+
             handler.process_captcha(message)
-            
+
             # Должна сгенерироваться новая капча
             mock_set.assert_called()
             assert mock_set.call_args[0][1]['captcha_answer'] == 6
@@ -171,11 +172,12 @@ class TestRoleAuth:
         with patch('database.get_user_by_id', return_value=existing_user), \
              patch('database.clear_user_state') as mock_clear, \
              patch('keyboards.seeker_main_menu', return_value=MagicMock()) as mock_keyboard:
-            
+
             handler.start_seeker_registration_after_captcha(message, user_state)
-            
+
             mock_clear.assert_called_with(message.from_user.id)
-            handler.bot.send_message.assert_called_with(message.chat.id, f"👋 Здравствуйте, {existing_user['full_name']}!", parse_mode='Markdown', reply_markup=mock_keyboard())
+            handler.bot.send_message.assert_called_with(message.chat.id, f"👋 Здравствуйте, {existing_user['full_name']}!",
+                                                        parse_mode='Markdown', reply_markup=mock_keyboard())
 
     def test_start_employer_reg_after_captcha_existing_user(self, handler, message):
         """Начало регистрации работодателя после капчи, но пользователь уже есть"""
@@ -186,4 +188,5 @@ class TestRoleAuth:
              patch('keyboards.employer_main_menu', return_value=MagicMock()) as mock_keyboard:
             handler.start_employer_registration_after_captcha(message, user_state)
             mock_clear.assert_called_with(message.from_user.id)
-            handler.bot.send_message.assert_called_with(message.chat.id, f"👋 Здравствуйте, {existing_user['company_name']}!", parse_mode='Markdown', reply_markup=mock_keyboard())
+            handler.bot.send_message.assert_called_with(message.chat.id, f"👋 Здравствуйте, {existing_user['company_name']}!",
+                                                        parse_mode='Markdown', reply_markup=mock_keyboard())

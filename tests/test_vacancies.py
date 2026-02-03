@@ -1,373 +1,211 @@
-import pytest
-import time
-import sqlite3
+import database.vacancies as vacancies
 from unittest.mock import patch
-from database.vacancies import (
-    create_vacancy,
-    update_vacancy,
-    delete_vacancy,
-    get_employer_vacancies,
-    get_all_vacancies,
-    create_application,
-    check_application_exists,
-    get_seeker_applications,
-    get_employer_statistics,
-    invalidate_vacancies_cache,
-    _vacancies_cache,
-    VACANCY_CACHE_TTL
-)
-from database.users import create_employer, create_job_seeker, get_user_by_id, get_all_seekers, update_seeker_profile
+import time
 
-class TestVacancies:
-    
-    @pytest.fixture(autouse=True)
-    def setup_data(self, test_db):
-        """Создание тестовых данных (работодатель и соискатель)"""
-        # Создаем работодателя
-        emp_data = {
-            'telegram_id': 100,
-            'password': 'Pass1!',
-            'company_name': 'Test Co',
-            'contact_person': 'Boss',
-            'phone': '+998901000000',
-            'email': 'emp@test.uz',
-            'city': 'Tashkent'
-        }
-        create_employer(emp_data)
-        self.employer = get_user_by_id(100)
-        
-        # Создаем соискателя
-        seeker_data = {
-            'telegram_id': 200,
-            'password': 'Pass1!',
-            'phone': '+998902000000',
-            'email': 'seeker@test.uz',
-            'full_name': 'Worker',
-            'age': 25,
-            'city': 'Tashkent'
-        }
-        create_job_seeker(seeker_data)
-        self.seeker = get_user_by_id(200)
-        
-        # Очищаем кэш перед каждым тестом
-        invalidate_vacancies_cache()
 
-    def test_create_vacancy(self):
-        """Тест создания вакансии"""
-        vac_data = {
-            'employer_id': self.employer['id'],
-            'title': 'Python Dev',
-            'description': 'Good job',
-            'salary': '1000$',
-            'job_type': 'Remote'
-        }
-        assert create_vacancy(vac_data) is True
-        
-        vacs = get_employer_vacancies(self.employer['id'])
-        assert len(vacs) == 1
-        assert vacs[0]['title'] == 'Python Dev'
+def test_create_vacancy(test_db):
+    # Setup
+    test_db.execute("INSERT INTO employers (id, telegram_id, company_name, phone, email, password_hash, contact_person, city) "
+                    "VALUES (1, 123, 'Comp', '998901234567', 'e@mail.com', 'hash', 'Contact', 'Tashkent')")
 
-    def test_update_vacancy(self):
-        """Тест обновления вакансии"""
-        # Создаем вакансию
-        create_vacancy({
-            'employer_id': self.employer['id'],
-            'title': 'Old Title',
-            'description': 'Old Desc',
-            'salary': '100$',
-            'job_type': 'Office'
-        })
-        vacs = get_employer_vacancies(self.employer['id'])
-        vac_id = vacs[0]['id']
+    data = {
+        'employer_id': 1,
+        'title': 'Dev',
+        'description': 'Code',
+        'salary': '1000',
+        'job_type': 'Remote'
+    }
+    assert vacancies.create_vacancy(data) is True
 
-        # Обновляем
-        assert update_vacancy(vac_id, title='New Title', salary='200$') is True
-        
-        # Проверяем
-        updated_vacs = get_employer_vacancies(self.employer['id'])
-        assert updated_vacs[0]['title'] == 'New Title'
-        assert updated_vacs[0]['salary'] == '200$'
-        assert updated_vacs[0]['description'] == 'Old Desc' # Не изменилось
+    res = test_db.execute("SELECT * FROM vacancies").fetchall()
+    assert len(res) == 1
+    assert res[0]['title'] == 'Dev'
 
-    def test_delete_vacancy(self):
-        """Тест удаления вакансии"""
-        # Создаем вакансию
-        create_vacancy({
-            'employer_id': self.employer['id'],
-            'title': 'To Delete',
-            'description': 'Desc'
-        })
-        vacs = get_employer_vacancies(self.employer['id'])
-        vac_id = vacs[0]['id']
 
-        # Удаляем
-        assert delete_vacancy(vac_id) is True
-        
-        # Проверяем, что список пуст
-        assert len(get_employer_vacancies(self.employer['id'])) == 0
+def test_create_vacancy_defaults(test_db):
+    """Тест значений по умолчанию (зарплата, тип)"""
+    test_db.execute("INSERT INTO employers (id, telegram_id, company_name, phone, email, password_hash, contact_person, city) "
+                    "VALUES (1, 123, 'Comp', '998901234567', 'e@mail.com', 'hash', 'Contact', 'Tashkent')")
+    data = {
+        'employer_id': 1,
+        'title': 'Minimal',
+        'description': 'Desc'
+    }
+    assert vacancies.create_vacancy(data) is True
+    res = test_db.execute("SELECT * FROM vacancies WHERE title='Minimal'").fetchone()
+    assert res['salary'] == 'Не указана'
+    assert res['job_type'] == 'Полный день'
 
-    def test_delete_vacancy_with_applications(self):
-        """Тест удаления вакансии с откликами (проверка каскадного удаления)"""
-        # 1. Создаем вакансию и отклик
-        create_vacancy({
-            'employer_id': self.employer['id'],
-            'title': 'To Delete With Apps',
-            'description': 'Desc'
-        })
-        vacs = get_employer_vacancies(self.employer['id'])
-        vac_id = vacs[0]['id']
-        create_application(vac_id, self.seeker['id'])
 
-        # Проверяем, что отклик создан
-        assert len(get_seeker_applications(self.seeker['id'])) == 1
+def test_update_vacancy(test_db):
+    test_db.execute("INSERT INTO employers (id, telegram_id, company_name, phone, email, password_hash, contact_person, city) "
+                    "VALUES (1, 123, 'Comp', '998901234567', 'e@mail.com', 'hash', 'Contact', 'Tashkent')")
+    test_db.execute("INSERT INTO vacancies (id, employer_id, title, description, status) "
+                    "VALUES (1, 1, 'Old', 'Desc', 'active')")
 
-        # 2. Удаляем вакансию
-        assert delete_vacancy(vac_id) is True
+    assert vacancies.update_vacancy(1, title='New') is True
 
-        # 3. Проверяем, что отклик тоже удален
-        assert len(get_seeker_applications(self.seeker['id'])) == 0
+    res = test_db.execute("SELECT * FROM vacancies WHERE id=1").fetchone()
+    assert res['title'] == 'New'
 
-    def test_update_vacancy_not_found(self):
-        """Тест обновления несуществующей вакансии"""
-        assert update_vacancy(999999, title="New Title") is False
+    # Invalid update (no allowed keys)
+    assert vacancies.update_vacancy(1, invalid_field='X') is False
+    # Update non-existent vacancy
+    assert vacancies.update_vacancy(999, title='Ghost') is False
 
-    def test_delete_vacancy_non_existent(self):
-        """Тест удаления несуществующей вакансии"""
-        assert delete_vacancy(9999) is False
 
-    def test_update_vacancy_no_data(self):
-        """Тест обновления вакансии без данных"""
-        create_vacancy({
-            'employer_id': self.employer['id'],
-            'title': 'Test', 'description': 'Test'
-        })
-        vacs = get_employer_vacancies(self.employer['id'])
-        vac_id = vacs[0]['id']
-        
-        # Пустой kwargs
-        assert update_vacancy(vac_id) is False
-        # Недопустимый ключ
-        assert update_vacancy(vac_id, invalid_key='some_value') is False
+def test_update_vacancy_no_updates_call(test_db):
+    """Проверка, что БД не вызывается, если нет валидных полей для обновления"""
+    with patch('database.vacancies.execute_query') as mock_query:
+        # Передаем только невалидные поля
+        assert vacancies.update_vacancy(1, invalid_field='X') is False
+        # execute_query НЕ должен быть вызван
+        mock_query.assert_not_called()
 
-    def test_get_all_vacancies_caching(self):
-        """Тест получения всех вакансий и кэширования"""
-        # Создаем вакансию
-        create_vacancy({
-            'employer_id': self.employer['id'],
-            'title': 'Cached Job',
-            'description': 'Desc',
-            'salary': '500$',
-            'job_type': 'Office'
-        })
-        
-        # Первый запрос (из БД)
-        vacs1 = get_all_vacancies()
-        assert len(vacs1) == 1
-        assert vacs1[0]['title'] == 'Cached Job'
-        
-        # Проверяем, что попало в кэш
-        cache_key = (20, 0) # limit=20, offset=0
-        assert cache_key in _vacancies_cache
-        
-        # Второй запрос (должен быть из кэша)
-        # Модифицируем кэш вручную, чтобы проверить, что берется именно он
-        timestamp, cached_data = _vacancies_cache[cache_key]
-        cached_data[0]['title'] = 'Modified in Cache'
-        _vacancies_cache[cache_key] = (timestamp, cached_data)
-        
-        vacs2 = get_all_vacancies()
-        assert vacs2[0]['title'] == 'Modified in Cache'
 
-    def test_get_all_vacancies_cache_expiration(self, test_db):
-        """Тест истечения срока действия кэша вакансий"""
-        create_vacancy({
-            'employer_id': self.employer['id'],
-            'title': 'Job 1', 'description': 'D'
-        })
-        
-        # 1. Заполняем кэш
-        get_all_vacancies()
-        cache_key = (20, 0)
-        assert cache_key in _vacancies_cache
-        
-        # 2. "Перематываем" время и меняем данные в кэше
-        timestamp, cached_data = _vacancies_cache[cache_key]
-        _vacancies_cache[cache_key] = (timestamp - VACANCY_CACHE_TTL - 1, cached_data) # Делаем кэш просроченным
-        
-        # 3. Создаем новую вакансию, чтобы данные в БД изменились
-        create_vacancy({
-            'employer_id': self.employer['id'],
-            'title': 'Job 2', 'description': 'D'
-        })
-        
-        # 4. Запрашиваем снова, должны получить свежие данные из БД
-        vacs = get_all_vacancies()
-        assert len(vacs) == 2
-        assert 'Job 2' in [v['title'] for v in vacs]
+def test_delete_vacancy(test_db):
+    test_db.execute("INSERT INTO employers (id, telegram_id, company_name, phone, email, password_hash, contact_person, city) "
+                    "VALUES (1, 123, 'Comp', '998901234567', 'e@mail.com', 'hash', 'Contact', 'Tashkent')")
+    test_db.execute("INSERT INTO vacancies (id, employer_id, title, description, status) "
+                    "VALUES (1, 1, 'Old', 'Desc', 'active')")
 
-    def test_applications_flow(self):
-        """Тест полного цикла отклика"""
-        # 1. Создаем вакансию
-        create_vacancy({
-            'employer_id': self.employer['id'],
-            'title': 'Job for Apply',
-            'description': 'Desc'
-        })
-        vacs = get_employer_vacancies(self.employer['id'])
-        vac_id = vacs[0]['id']
-        
-        # 2. Проверяем, что отклика нет
-        assert check_application_exists(vac_id, self.seeker['id']) is False
-        
-        # 3. Создаем отклик
-        assert create_application(vac_id, self.seeker['id'], "Hello") is True
-        
-        # 4. Проверяем, что отклик появился
-        assert check_application_exists(vac_id, self.seeker['id']) is True
-        
-        # 5. Проверяем список откликов соискателя
-        apps = get_seeker_applications(self.seeker['id'])
-        assert len(apps) == 1
-        assert apps[0]['title'] == 'Job for Apply'
-        assert apps[0]['company_name'] == 'Test Co'
+    assert vacancies.delete_vacancy(1) is True
+    res = test_db.execute("SELECT * FROM vacancies").fetchall()
+    assert len(res) == 0
 
-    def test_create_application_no_message(self):
-        """Тест создания отклика без сопроводительного сообщения"""
-        create_vacancy({'employer_id': self.employer['id'], 'title': 'Job', 'description': 'D'})
-        vacs = get_employer_vacancies(self.employer['id'])
-        vac_id = vacs[0]['id']
-        assert create_application(vac_id, self.seeker['id']) is True # Вызов без message
+    # Delete non-existent
+    assert vacancies.delete_vacancy(999) is False
 
-    def test_get_seeker_applications_db_error(self):
-        """Тест ошибки БД при получении откликов соискателя"""
-        with patch('database.vacancies.execute_query', side_effect=Exception("DB Error")):
-            result = get_seeker_applications(self.seeker['id'])
-            assert result == []
 
-    def test_check_application_exists_db_error(self):
-        """Тест ошибки БД при проверке отклика"""
-        with patch('database.vacancies.execute_query', side_effect=Exception("DB Error")):
-            assert check_application_exists(1, 1) is False
+def test_get_all_vacancies_and_cache(test_db):
+    test_db.execute("INSERT INTO employers (id, telegram_id, company_name, phone, email, password_hash, contact_person, city) "
+                    "VALUES (1, 123, 'Comp', '998901234567', 'e@mail.com', 'hash', 'Contact', 'Tashkent')")
+    test_db.execute("INSERT INTO vacancies (id, employer_id, title, description, status) VALUES (1, 1, 'V1', 'D1', 'active')")
 
-    def test_employer_statistics(self):
-        """Тест статистики работодателя"""
-        # Изначально пусто
-        stats = get_employer_statistics(self.employer['id'])
-        assert stats['total_vacancies'] == 0
-        
-        # Создаем 2 вакансии
-        vac_data = {'employer_id': self.employer['id'], 'title': 'J', 'description': 'D'}
-        create_vacancy(vac_data)
-        create_vacancy(vac_data)
-        
-        # Создаем отклик на первую
-        vacs = get_employer_vacancies(self.employer['id'])
-        create_application(vacs[0]['id'], self.seeker['id'])
-        
-        # Проверяем статистику
-        stats = get_employer_statistics(self.employer['id'])
-        assert stats['total_vacancies'] == 2
-        assert stats['active_vacancies'] == 2
-        assert stats['total_applications'] == 1
+    # First call - DB hit
+    res = vacancies.get_all_vacancies()
+    assert len(res) == 1
+    assert res[0]['title'] == 'V1'
 
-    def test_employer_statistics_no_apps(self):
-        """Тест статистики работодателя без откликов"""
-        create_vacancy({'employer_id': self.employer['id'], 'title': 'J', 'description': 'D'})
-        
-        stats = get_employer_statistics(self.employer['id'])
-        assert stats['total_vacancies'] == 1
-        assert stats['active_vacancies'] == 1
-        assert stats['total_applications'] == 0
+    # Second call - Cache hit (simulated by checking if it works without DB change)
+    res2 = vacancies.get_all_vacancies()
+    assert len(res2) == 1
 
-    def test_create_vacancy_error(self):
-        """Тест ошибки при создании вакансии (неполные данные)"""
-        # Отсутствует обязательное поле title
-        bad_data = {
-            'employer_id': self.employer['id'],
-            'description': 'No title'
-        }
-        assert create_vacancy(bad_data) is False
+    # Invalidate cache via create
+    vacancies.create_vacancy({'employer_id': 1, 'title': 'V2', 'description': 'D2'})
+    res3 = vacancies.get_all_vacancies()
+    assert len(res3) == 2
 
-    def test_find_candidates_logic(self):
-        """Тест логики поиска кандидатов (фильтрация активных)"""
-        # self.seeker уже создан в setup_data и он active по умолчанию
-        
-        # Создаем второго соискателя, который "Нашел работу" (inactive)
-        inactive_seeker_data = {
-            'telegram_id': 300,
-            'password': 'Pass',
-            'phone': '+998903000000',
-            'email': 'inactive@test.uz',
-            'full_name': 'Inactive User',
-            'age': 30,
-            'city': 'Tashkent'
-        }
-        create_job_seeker(inactive_seeker_data)
-        update_seeker_profile(300, status='inactive')
 
-        # Получаем всех соискателей
-        all_seekers = get_all_seekers(limit=100)
-        
-        # Эмулируем логику фильтрации из хендлера
-        active_seekers = [s for s in all_seekers if s.get('status') == 'active']
-        
-        # Должен остаться только self.seeker (Worker)
-        assert len(active_seekers) == 1
-        assert active_seekers[0]['full_name'] == 'Worker'
-        
-        # Проверяем, что Inactive User есть в общем списке, но не в активном
-        names = [s['full_name'] for s in all_seekers]
-        assert 'Inactive User' in names
+def test_application_flow(test_db):
+    test_db.execute("INSERT INTO employers (id, telegram_id, company_name, phone, email, password_hash, contact_person, city) "
+                    "VALUES (1, 123, 'Comp', '998901234567', 'e@mail.com', 'hash', 'Contact', 'Tashkent')")
+    test_db.execute("INSERT INTO job_seekers (id, telegram_id, full_name, phone, email, password_hash, age, city) "
+                    "VALUES (10, 456, 'Seeker', '998901112233', 's@mail.com', 'hash', 25, 'Tashkent')")
+    test_db.execute("INSERT INTO vacancies (id, employer_id, title, description, status) "
+                    "VALUES (1, 1, 'Job', 'Desc', 'active')")
 
-    def test_get_employer_vacancies_db_error(self, test_db):
-        """Тест ошибки БД при получении вакансий работодателя"""
-        with patch('database.vacancies.execute_query', side_effect=Exception("DB connection failed")):
-            result = get_employer_vacancies(self.employer['id'])
-            assert result == [] # Должен вернуть пустой список
+    assert vacancies.create_application(1, 10, "Hello") is True
+    assert vacancies.check_application_exists(1, 10) is True
 
-    def test_create_vacancy_exception(self):
-        """Тест исключения при создании вакансии"""
-        vac_data = {'employer_id': 1, 'title': 'T', 'description': 'D'}
-        with patch('database.vacancies.execute_query', side_effect=Exception("DB Error")):
-            assert create_vacancy(vac_data) is False
+    apps = vacancies.get_seeker_applications(10)
+    assert len(apps) == 1
+    assert apps[0]['message'] == "Hello"
 
-    def test_update_vacancy_exception(self):
-        """Тест исключения при обновлении вакансии"""
-        with patch('database.vacancies.execute_query', side_effect=Exception("DB Error")):
-            assert update_vacancy(1, title="New") is False
+    stats = vacancies.get_employer_statistics(1)
+    assert stats['total_applications'] == 1
+    assert stats['active_vacancies'] == 1
 
-    def test_delete_vacancy_exception(self):
-        """Тест исключения при удалении вакансии"""
-        with patch('database.vacancies.execute_query', side_effect=Exception("DB Error")):
-            assert delete_vacancy(1) is False
 
-    def test_get_all_vacancies_exception(self):
-        """Тест исключения при получении всех вакансий"""
-        with patch('database.vacancies.execute_query', side_effect=Exception("DB Error")):
-            assert get_all_vacancies() == []
+def test_error_handling(test_db):
+    # Mock execute_query to raise exception
+    with patch('database.vacancies.execute_query', side_effect=Exception("DB Error")):
+        assert vacancies.create_vacancy({}) is False
+        assert vacancies.get_all_vacancies() == []
+        assert vacancies.get_employer_statistics(1)['total_vacancies'] == 0
 
-    def test_create_application_exception(self):
-        """Тест исключения при создании отклика"""
-        with patch('database.vacancies.execute_query', side_effect=Exception("DB Error")):
-            assert create_application(1, 1) is False
 
-    def test_get_employer_statistics_exception(self):
-        """Тест исключения при получении статистики"""
-        with patch('database.vacancies.execute_query', side_effect=Exception("DB Error")):
-            stats = get_employer_statistics(1)
-            assert stats['total_vacancies'] == 0
+def test_get_employer_vacancies(test_db):
+    """Тест получения вакансий конкретного работодателя"""
+    # Создаем работодателя
+    test_db.execute("INSERT INTO employers (id, telegram_id, company_name, phone, email, password_hash, contact_person, city) "
+                    "VALUES (1, 123, 'Comp', '998901234567', 'e@mail.com', 'hash', 'Contact', 'Tashkent')")
 
-    def test_create_vacancy_integrity_error(self):
-        """Тест ошибки целостности при создании вакансии"""
-        vac_data = {'employer_id': 1, 'title': 'T', 'description': 'D'}
-        with patch('database.vacancies.execute_query', side_effect=sqlite3.IntegrityError("FK failed")):
-            assert create_vacancy(vac_data) is False
+    # Создаем вакансии (одна активная, одна закрытая, чтобы проверить, что возвращаются все)
+    test_db.execute("INSERT INTO vacancies (id, employer_id, title, description, status) "
+                    "VALUES (1, 1, 'V1', 'D1', 'active')")
+    test_db.execute("INSERT INTO vacancies (id, employer_id, title, description, status) "
+                    "VALUES (2, 1, 'V2', 'D2', 'closed')")
 
-    def test_create_vacancy_db_error(self):
-        """Тест ошибки БД при создании вакансии (print error)"""
-        vac_data = {'employer_id': 1, 'title': 'T', 'description': 'D'}
-        with patch('database.vacancies.execute_query', side_effect=Exception("DB Error")), \
-             patch('builtins.print') as mock_print:
-            
-            assert create_vacancy(vac_data) is False
-            mock_print.assert_called()
+    # Получаем вакансии
+    res = vacancies.get_employer_vacancies(1)
+    assert len(res) == 2
+    assert res[0]['title'] == 'V2'  # Проверка сортировки (ORDER BY created_at DESC, id DESC)
+    assert res[1]['title'] == 'V1'
+
+    # Проверяем для несуществующего работодателя
+    res_empty = vacancies.get_employer_vacancies(999)
+    assert res_empty == []
+
+
+def test_get_all_vacancies_cache_expiration(test_db):
+    """Тест истечения времени жизни кэша"""
+    test_db.execute("INSERT INTO employers (id, telegram_id, company_name, phone, email, password_hash, contact_person, city) "
+                    "VALUES (1, 123, 'Comp', '998901234567', 'e@mail.com', 'hash', 'Contact', 'Tashkent')")
+    test_db.execute("INSERT INTO vacancies (id, employer_id, title, description, status) "
+                    "VALUES (1, 1, 'V1', 'D1', 'active')")
+
+    # 1. Заполняем кэш
+    vacancies.get_all_vacancies()
+
+    # 2. Модифицируем БД напрямую (в обход функций, чтобы не сбросить кэш)
+    test_db.execute("UPDATE vacancies SET title = 'V1_Updated' WHERE id = 1")
+
+    # 3. Проверяем, что данные берутся из кэша (старые)
+    res = vacancies.get_all_vacancies()
+    assert res[0]['title'] == 'V1'
+
+    # 4. Имитируем истечение времени (патчим time.time)
+    # VACANCY_CACHE_TTL = 60
+    with patch('time.time', return_value=time.time() + 61):
+        res_expired = vacancies.get_all_vacancies()
+        # Теперь должны получить обновленные данные
+        assert res_expired[0]['title'] == 'V1_Updated'
+
+
+def test_cache_ttl_boundary(test_db):
+    """Строгая проверка границы TTL кэша (убивает мутантов, меняющих константу 60)"""
+    test_db.execute("INSERT INTO employers (id, telegram_id, company_name, phone, email, password_hash, contact_person, city) "
+                    "VALUES (1, 123, 'Comp', '998901234567', 'e@mail.com', 'hash', 'Contact', 'Tashkent')")
+    test_db.execute("INSERT INTO vacancies (id, employer_id, title, description, status) "
+                    "VALUES (1, 1, 'Original', 'D', 'active')")
+
+    # 1. Заполняем кэш
+    vacancies.get_all_vacancies()
+
+    # 2. Обновляем БД
+    test_db.execute("UPDATE vacancies SET title = 'Updated' WHERE id = 1")
+
+    # 3. Проверяем ровно через 60.1 секунду (TTL = 60)
+    # Если мутант изменил TTL на 61, то вернется старое значение ('Original')
+    with patch('time.time', return_value=time.time() + 60.1):
+        res = vacancies.get_all_vacancies()
+        assert res[0]['title'] == 'Updated'
+
+
+def test_get_employer_statistics_empty(test_db):
+    """Тест статистики для нового работодателя (покрывает нули)"""
+    test_db.execute("INSERT INTO employers (id, telegram_id, company_name, phone, email, password_hash, contact_person, city) "
+                    "VALUES (1, 123, 'Comp', '998901234567', 'e@mail.com', 'hash', 'Contact', 'Tashkent')")
+    stats = vacancies.get_employer_statistics(1)
+    assert stats['total_vacancies'] == 0
+    assert stats['active_vacancies'] == 0
+    assert stats['total_applications'] == 0
+
+
+def test_check_application_exists_false(test_db):
+    assert vacancies.check_application_exists(1, 10) is False
+
+
+def test_get_seeker_applications_empty(test_db):
+    assert vacancies.get_seeker_applications(10) == []

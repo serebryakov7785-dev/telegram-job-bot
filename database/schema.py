@@ -1,8 +1,10 @@
-﻿from .core import execute_query, get_connection
+from .core import execute_query, get_connection
 import logging
 
 # ================= ИНИЦИАЛИЗАЦИЯ БД =================
-def init_database():
+
+
+def init_database():  # noqa: C901
     """Инициализация базы данных"""
     try:
         # Соискатели
@@ -25,7 +27,7 @@ def init_database():
                 last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """, commit=False)
-        
+
         # Работодатели
         execute_query("""
             CREATE TABLE IF NOT EXISTS employers (
@@ -43,7 +45,7 @@ def init_database():
                 last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """, commit=False)
-        
+
         # Вакансии
         execute_query("""
             CREATE TABLE IF NOT EXISTS vacancies (
@@ -53,12 +55,13 @@ def init_database():
                 description TEXT NOT NULL,
                 salary TEXT DEFAULT 'Не указана',
                 job_type TEXT DEFAULT 'Полный день',
+                languages TEXT DEFAULT 'Не указаны',
                 status TEXT DEFAULT 'active',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (employer_id) REFERENCES employers (id) ON DELETE CASCADE
             )
         """, commit=False)
-        
+
         # Отклики на вакансии
         execute_query("""
             CREATE TABLE IF NOT EXISTS applications (
@@ -72,7 +75,7 @@ def init_database():
                 FOREIGN KEY (seeker_id) REFERENCES job_seekers (id) ON DELETE CASCADE
             )
         """, commit=False)
-        
+
         # Таблица для истории смены Telegram ID (для аудита)
         execute_query("""
             CREATE TABLE IF NOT EXISTS telegram_id_history (
@@ -84,43 +87,53 @@ def init_database():
                 changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """, commit=False)
-        
+
         # Миграции через PRAGMA (безопасный способ)
-        
+
         # 1. Проверка job_seekers
         columns_seekers = execute_query("PRAGMA table_info(job_seekers)", fetchall=True)
         if columns_seekers:
             column_names = [col['name'] for col in columns_seekers]
-            
+
             if 'status' not in column_names:
-                logging.warning("⚠️ Колонка status не найдена в job_seekers, добавляем...")
-                execute_query("ALTER TABLE job_seekers ADD COLUMN status TEXT DEFAULT 'active'", commit=False)
-            
+                logging.info("⚠️ Колонка status не найдена в job_seekers, добавляем...")
+                execute_query("ALTER TABLE job_seekers ADD COLUMN status TEXT DEFAULT 'active'", commit=True)
+
             if 'last_login' not in column_names:
-                logging.warning("⚠️ Колонка last_login не найдена в job_seekers, добавляем...")
-                execute_query("ALTER TABLE job_seekers ADD COLUMN last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP", commit=False)
-            
+                logging.info("⚠️ Колонка last_login не найдена в job_seekers, добавляем...")
+                execute_query("ALTER TABLE job_seekers ADD COLUMN last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+                              commit=True)
+
             if 'city' not in column_names:
-                logging.warning("⚠️ Колонка city не найдена в job_seekers, добавляем...")
-                execute_query("ALTER TABLE job_seekers ADD COLUMN city TEXT DEFAULT 'Не указан'", commit=False)
-            
+                logging.info("⚠️ Колонка city не найдена в job_seekers, добавляем...")
+                execute_query("ALTER TABLE job_seekers ADD COLUMN city TEXT DEFAULT 'Не указан'", commit=True)
+
             if 'languages' not in column_names:
-                logging.warning("⚠️ Колонка languages не найдена в job_seekers, добавляем...")
-                execute_query("ALTER TABLE job_seekers ADD COLUMN languages TEXT DEFAULT 'Не указаны'", commit=False)
+                logging.info("⚠️ Колонка languages не найдена в job_seekers, добавляем...")
+                execute_query("ALTER TABLE job_seekers ADD COLUMN languages TEXT DEFAULT 'Не указаны'", commit=True)
 
         # 2. Проверка employers
         columns_employers = execute_query("PRAGMA table_info(employers)", fetchall=True)
         if columns_employers:
             column_names = [col['name'] for col in columns_employers]
-            
+
             if 'last_login' not in column_names:
-                logging.warning("⚠️ Колонка last_login не найдена в employers, добавляем...")
-                execute_query("ALTER TABLE employers ADD COLUMN last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP", commit=False)
-            
+                logging.info("⚠️ Колонка last_login не найдена в employers, добавляем...")
+                execute_query("ALTER TABLE employers ADD COLUMN last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP", commit=True)
+
             if 'city' not in column_names:
-                logging.warning("⚠️ Колонка city не найдена в employers, добавляем...")
-                execute_query("ALTER TABLE employers ADD COLUMN city TEXT DEFAULT 'Не указан'", commit=False)
-        
+                logging.info("⚠️ Колонка city не найдена в employers, добавляем...")
+                execute_query("ALTER TABLE employers ADD COLUMN city TEXT DEFAULT 'Не указан'", commit=True)
+
+        # 3. Проверка vacancies
+        columns_vacancies = execute_query("PRAGMA table_info(vacancies)", fetchall=True)
+        if columns_vacancies:
+            column_names = [col['name'] for col in columns_vacancies]
+
+            if 'languages' not in column_names:
+                logging.info("⚠️ Колонка languages не найдена в vacancies, добавляем...")
+                execute_query("ALTER TABLE vacancies ADD COLUMN languages TEXT DEFAULT 'Не указаны'", commit=True)
+
         get_connection().commit()
         logging.info("✅ База данных создана/проверена")
         return True
@@ -128,6 +141,6 @@ def init_database():
         logging.error(f"❌ Ошибка инициализации БД: {e}", exc_info=True)
         try:
             get_connection().rollback()
-        except:
+        except Exception:
             pass
         return False

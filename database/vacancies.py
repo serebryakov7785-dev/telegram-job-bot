@@ -6,22 +6,25 @@ from .core import execute_query
 _vacancies_cache: Dict[Tuple[int, int], Tuple[float, List[Dict[str, Any]]]] = {}
 VACANCY_CACHE_TTL = 60  # Время жизни кэша в секундах
 
+
 def invalidate_vacancies_cache():
     """Сброс кэша списка вакансий"""
     _vacancies_cache.clear()
+
 
 def create_vacancy(data: Dict[str, Any]) -> bool:
     """Создание новой вакансии"""
     try:
         execute_query("""
-            INSERT INTO vacancies (employer_id, title, description, salary, job_type)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO vacancies (employer_id, title, description, salary, job_type, languages)
+            VALUES (?, ?, ?, ?, ?, ?)
         """, (
             data['employer_id'],
             data['title'],
             data['description'],
             data.get('salary', 'Не указана'),
-            data.get('job_type', 'Полный день')
+            data.get('job_type', 'Полный день'),
+            data.get('languages', 'Не указаны')
         ))
         invalidate_vacancies_cache()
         return True
@@ -29,20 +32,21 @@ def create_vacancy(data: Dict[str, Any]) -> bool:
         print(f"❌ Ошибка создания вакансии: {e}")
         return False
 
+
 def update_vacancy(vacancy_id: int, **kwargs) -> bool:
     """Обновление вакансии"""
-    allowed_keys = {'title', 'description', 'salary', 'job_type', 'status'}
+    allowed_keys = {'title', 'description', 'salary', 'job_type', 'status', 'languages'}
     updates = {k: v for k, v in kwargs.items() if k in allowed_keys}
-    
+
     if not updates:
         return False
-        
+
     set_clause = ", ".join([f"{k} = ?" for k in updates.keys()])
     values = list(updates.values())
     values.append(vacancy_id)
-    
+
     try:
-        result = execute_query(f"UPDATE vacancies SET {set_clause} WHERE id = ?", tuple(values))
+        result = execute_query(f"UPDATE vacancies SET {set_clause} WHERE id = ?", tuple(values))  # nosec
         if result > 0:
             invalidate_vacancies_cache()
             return True
@@ -50,6 +54,7 @@ def update_vacancy(vacancy_id: int, **kwargs) -> bool:
     except Exception as e:
         print(f"❌ Ошибка обновления вакансии: {e}")
         return False
+
 
 def delete_vacancy(vacancy_id: int) -> bool:
     """Удаление вакансии"""
@@ -65,17 +70,19 @@ def delete_vacancy(vacancy_id: int) -> bool:
         print(f"❌ Ошибка удаления вакансии: {e}")
         return False
 
+
 def get_employer_vacancies(employer_id: int) -> List[Dict[str, Any]]:
     """Получение вакансий работодателя"""
     try:
         return execute_query("""
-            SELECT * FROM vacancies 
-            WHERE employer_id = ? 
+            SELECT * FROM vacancies
+            WHERE employer_id = ?
             ORDER BY created_at DESC, id DESC
         """, (employer_id,), fetchall=True)
     except Exception as e:
         print(f"❌ Ошибка получения вакансий: {e}")
         return []
+
 
 def get_all_vacancies(limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
     """Получение всех активных вакансий"""
@@ -88,25 +95,26 @@ def get_all_vacancies(limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
 
     try:
         result = execute_query("""
-            SELECT v.*, e.company_name, e.phone, e.email, e.city 
+            SELECT v.*, e.company_name, e.phone, e.email, e.city
             FROM vacancies v
             JOIN employers e ON v.employer_id = e.id
             WHERE v.status = 'active'
             ORDER BY v.created_at DESC, v.id DESC
             LIMIT ? OFFSET ?
         """, (limit, offset), fetchall=True)
-        
+
         _vacancies_cache[cache_key] = (time.time(), result)
         return [v.copy() for v in result]
     except Exception as e:
         print(f"❌ Ошибка получения всех вакансий: {e}")
         return []
 
+
 def get_seeker_applications(seeker_id: int) -> List[Dict[str, Any]]:
     """Получение откликов соискателя"""
     try:
         return execute_query("""
-            SELECT a.*, v.title, v.salary, e.company_name 
+            SELECT a.*, v.title, v.salary, e.company_name
             FROM applications a
             JOIN vacancies v ON a.vacancy_id = v.id
             JOIN employers e ON v.employer_id = e.id
@@ -116,6 +124,7 @@ def get_seeker_applications(seeker_id: int) -> List[Dict[str, Any]]:
     except Exception as e:
         print(f"❌ Ошибка получения откликов: {e}")
         return []
+
 
 def create_application(vacancy_id: int, seeker_id: int, message: str = "") -> bool:
     """Создание отклика на вакансию"""
@@ -129,17 +138,19 @@ def create_application(vacancy_id: int, seeker_id: int, message: str = "") -> bo
         print(f"❌ Ошибка создания отклика: {e}")
         return False
 
+
 def check_application_exists(vacancy_id: int, seeker_id: int) -> bool:
     """Проверка существования отклика"""
     try:
         result = execute_query("""
-            SELECT id FROM applications 
+            SELECT id FROM applications
             WHERE vacancy_id = ? AND seeker_id = ?
         """, (vacancy_id, seeker_id), fetchone=True)
         return result is not None
     except Exception as e:
         print(f"❌ Ошибка проверки отклика: {e}")
         return False
+
 
 def get_employer_statistics(employer_id: int) -> Dict[str, int]:
     """Получение статистики работодателя"""
@@ -149,22 +160,22 @@ def get_employer_statistics(employer_id: int) -> Dict[str, int]:
             SELECT COUNT(*) as count FROM vacancies WHERE employer_id = ?
         """, (employer_id,), fetchone=True)
         total_vacancies = res_total['count'] if res_total else 0
-        
+
         # Количество активных вакансий
         res_active = execute_query("""
             SELECT COUNT(*) as count FROM vacancies WHERE employer_id = ? AND status = 'active'
         """, (employer_id,), fetchone=True)
         active_vacancies = res_active['count'] if res_active else 0
-        
+
         # Количество откликов
         res_apps = execute_query("""
-            SELECT COUNT(*) as count 
+            SELECT COUNT(*) as count
             FROM applications a
             JOIN vacancies v ON a.vacancy_id = v.id
             WHERE v.employer_id = ?
         """, (employer_id,), fetchone=True)
         total_applications = res_apps['count'] if res_apps else 0
-        
+
         return {
             'total_vacancies': total_vacancies,
             'active_vacancies': active_vacancies,

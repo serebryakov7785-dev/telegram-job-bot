@@ -1,10 +1,10 @@
-import pytest
 import sys
 import os
 from unittest.mock import patch, MagicMock
 
 # Ensure the project root is in the path, similar to how conf.py does it
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 
 def test_conf_imports_and_variables():
     """
@@ -16,6 +16,7 @@ def test_conf_imports_and_variables():
     assert conf.author == 'Developer'
     assert 'sphinx.ext.autodoc' in conf.extensions
     assert conf.language == 'ru'
+
 
 def test_conf_theme_logic():
     """

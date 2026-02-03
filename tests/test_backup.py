@@ -2,7 +2,13 @@ import pytest
 import os
 import time
 from unittest.mock import patch, MagicMock
-import database.backup
+import sys
+
+# Add project root to path to allow imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+import database.backup  # noqa: E402
+
 
 @pytest.fixture
 def backup_dir(tmp_path):
@@ -12,6 +18,7 @@ def backup_dir(tmp_path):
     # Patch the BACKUP_DIR constant in the backup module
     with patch.object(database.backup, 'BACKUP_DIR', str(dir_path)):
         yield str(dir_path)
+
 
 def test_cleanup_old_backups(backup_dir):
     """Test that old backups are cleaned up correctly."""
@@ -37,6 +44,7 @@ def test_cleanup_old_backups(backup_dir):
     assert os.path.basename(file_names[2]) in remaining_files
     assert os.path.basename(file_names[6]) in remaining_files
 
+
 def test_cleanup_not_enough_backups(backup_dir):
     """Test cleanup when there are fewer backups than the keep limit."""
     # Create 3 files
@@ -50,6 +58,7 @@ def test_cleanup_not_enough_backups(backup_dir):
     # No files should be deleted
     assert len(os.listdir(backup_dir)) == 3
 
+
 def test_cleanup_no_backup_dir():
     """Test cleanup when the backup directory does not exist."""
     # Patch BACKUP_DIR to a non-existent directory
@@ -59,24 +68,26 @@ def test_cleanup_no_backup_dir():
         # And the directory should not be created
         assert not os.path.exists("non_existent_dir")
 
+
 def test_create_backup_success(backup_dir):
     """Test successful backup creation."""
     with patch('database.backup.get_connection') as mock_get_conn, \
          patch('sqlite3.connect') as mock_connect, \
          patch('database.backup.cleanup_old_backups') as mock_cleanup:
-        
+
         mock_src_conn = MagicMock()
         mock_dst_conn = MagicMock()
         mock_get_conn.return_value = mock_src_conn
         mock_connect.return_value = mock_dst_conn
-        
+
         success, path = database.backup.create_backup()
-        
+
         assert success is True
         assert "backup_" in path
         mock_src_conn.backup.assert_called_with(mock_dst_conn)
         mock_dst_conn.close.assert_called()
         mock_cleanup.assert_called()
+
 
 def test_create_backup_failure(backup_dir):
     """Test backup creation failure."""

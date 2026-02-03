@@ -6,7 +6,8 @@ import pytest
 sys.modules['telebot'] = MagicMock()
 sys.modules['telebot.types'] = MagicMock()
 
-import bot
+import bot  # noqa: E402
+
 
 class TestBotRoutes:
     @pytest.fixture
@@ -41,12 +42,12 @@ class TestBotRoutes:
         """Тест роутинга текстовых сообщений"""
         message.text = "Some text"
         func = getattr(bot, 'handle_text', getattr(bot, 'text_message_handler', None))
-        
+
         if func:
             with patch('bot.check_rate_limit', return_value=True), \
                  patch('bot.step_handlers.handle_steps', return_value=False) as mock_steps, \
                  patch('bot.handle_main_menu') as mock_menu:
-                
+
                 func(message)
                 mock_steps.assert_called_with(message)
                 mock_menu.assert_called_with(message)
@@ -57,9 +58,9 @@ class TestBotRoutes:
         call.message = message
         call.data = "test_data"
         call.from_user.id = 456
-        
+
         func = getattr(bot, 'handle_callback', getattr(bot, 'callback_query_handler', None))
-        
+
         if func:
             with patch('bot.check_rate_limit', return_value=True):
                 # Просто проверяем, что функция не падает

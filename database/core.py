@@ -2,8 +2,7 @@ import sqlite3
 import hashlib
 import threading
 import atexit
-import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 # ================= ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ =================
 # Храним подключения для каждого потока
@@ -12,6 +11,7 @@ _local = threading.local()
 # Глобальный словарь для состояний пользователей (в памяти)
 _user_states = {}
 _user_states_lock = threading.Lock()
+
 
 # ================= ФУНКЦИИ ПОДКЛЮЧЕНИЯ =================
 def get_connection():
@@ -27,26 +27,31 @@ def get_connection():
         _local.conn.execute("PRAGMA foreign_keys = ON")
     return _local.conn
 
+
 def close_all_connections():
     """Закрытие всех соединений при завершении"""
     if hasattr(_local, 'conn') and _local.conn:
         try:
             _local.conn.close()
-        except:
+        except Exception:
             pass
         _local.conn = None
 
+
 # Регистрируем закрытие при выходе
 atexit.register(close_all_connections)
+
 
 # ================= УТИЛИТЫ =================
 def hash_password(pwd: str) -> str:
     """Хэширование пароля"""
     return hashlib.sha256(pwd.encode()).hexdigest()
 
+
 def verify_password(stored_hash: str, password: str) -> bool:
     """Проверка пароля"""
     return stored_hash == hash_password(password)
+
 
 # ================= ФУНКЦИИ СОСТОЯНИЙ =================
 def get_user_state(user_id: int) -> Dict[str, Any]:
@@ -55,10 +60,12 @@ def get_user_state(user_id: int) -> Dict[str, Any]:
         state = _user_states.get(user_id, {})
         return state.copy() if state else {}
 
+
 def set_user_state(user_id: int, state: Dict[str, Any]):
     """Установка состояния пользователя"""
     with _user_states_lock:
         _user_states[user_id] = state.copy() if state else {}
+
 
 def clear_user_state(user_id: int):
     """Очистка состояния пользователя"""
@@ -66,15 +73,16 @@ def clear_user_state(user_id: int):
         if user_id in _user_states:
             del _user_states[user_id]
 
+
 # ================= ОБЩИЕ ФУНКЦИИ БД =================
-def execute_query(query: str, params: tuple = (), fetchone: bool = False, fetchall: bool = False, commit: bool = True, suppress_error: bool = False):
+def execute_query(query: str, params: tuple = (), fetchone: bool = False, fetchall: bool = False, commit: bool = True, suppress_error: bool = False):  # noqa: C901, E501
     """Универсальная функция выполнения запросов с обработкой ошибок"""
     conn = get_connection()
     cursor = conn.cursor()
-    
+
     try:
         cursor.execute(query, params)
-        
+
         if fetchone:
             result = cursor.fetchone()
             if result:
@@ -103,5 +111,5 @@ def execute_query(query: str, params: tuple = (), fetchone: bool = False, fetcha
     finally:
         try:
             cursor.close()
-        except:
+        except Exception:
             pass

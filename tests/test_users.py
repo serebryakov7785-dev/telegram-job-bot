@@ -1,10 +1,9 @@
-import pytest
 import time
 import sqlite3
 from database.users import (
-    create_job_seeker, 
-    create_employer, 
-    get_user_by_id, 
+    create_job_seeker,
+    create_employer,
+    get_user_by_id,
     get_user_by_credentials,
     update_seeker_profile,
     update_employer_profile,
@@ -21,8 +20,9 @@ from database.users import (
 )
 from database.core import verify_password
 
+
 class TestUserOperations:
-    
+
     def test_create_and_get_seeker(self, test_db):
         user_data = {
             'telegram_id': 1001,
@@ -33,16 +33,16 @@ class TestUserOperations:
             'age': 25,
             'city': 'Tashkent'
         }
-        
+
         # 1. Создание
         assert create_job_seeker(user_data) is True
-        
+
         # 2. Поиск по ID
         user = get_user_by_id(1001)
         assert user is not None
         assert user['full_name'] == 'Test Seeker'
         assert user['role'] == 'seeker'
-        
+
         # 3. Проверка хэша пароля (безопасность)
         assert user['password_hash'] != 'SecurePassword1!'
         assert verify_password(user['password_hash'], 'SecurePassword1!') is True
@@ -59,9 +59,9 @@ class TestUserOperations:
             'description': 'A great place to work',
             'business_activity': 'Software Development'
         }
-        
+
         assert create_employer(user_data) is True
-        
+
         user = get_user_by_id(2002)
         assert user is not None
         assert user['company_name'] == 'Test Corp'
@@ -83,7 +83,7 @@ class TestUserOperations:
             'age': 20,
             'city': 'Tashkent'
         }
-        
+
         assert create_job_seeker(user_data) is True
         # Попытка создать с тем же ID
         assert create_job_seeker(user_data) is False
@@ -92,14 +92,14 @@ class TestUserOperations:
         """Тест обновления профиля соискателя"""
         # Создаем пользователя
         create_job_seeker({
-            'telegram_id': 3003, 'password': 'P', 'phone': '998901112233', 
+            'telegram_id': 3003, 'password': 'P', 'phone': '998901112233',
             'email': 'u@u.uz', 'full_name': 'Old Name', 'age': 20, 'city': 'Tashkent'
         })
-        
+
         # Обновляем
         updates = {'full_name': 'New Name', 'age': 21}
         assert update_seeker_profile(3003, **updates) is True
-        
+
         # Проверяем
         user = get_user_by_id(3003)
         assert user['full_name'] == 'New Name'
@@ -133,7 +133,7 @@ class TestUserOperations:
                 'telegram_id': 5000 + i, 'password': 'p', 'phone': f'9989050000{i:02d}',
                 'email': f's{i}@test.uz', 'full_name': f'Seeker {i}', 'age': 20, 'city': 'T'
             })
-        
+
         # Получаем первую страницу
         page1 = get_all_seekers(limit=10, offset=0)
         assert len(page1) == 10
@@ -172,7 +172,7 @@ class TestUserOperations:
                 'telegram_id': 7000 + i, 'password': 'p', 'company_name': f'Stat Co {i}',
                 'contact_person': 'CP', 'phone': f'9989070000{i:02d}', 'email': f'stat_e{i}@test.uz', 'city': 'T'
             })
-        
+
         # Проверяем статистику снова
         stats = get_statistics()
         assert stats['seekers'] == 3
@@ -231,12 +231,13 @@ class TestUserOperations:
 
     def test_get_all_seekers_caching(self, test_db):
         """Тест кэширования для get_all_seekers"""
-        create_job_seeker({'telegram_id': 13001, 'password': 'p', 'phone': '13001', 'email': '13001@a.a', 'full_name': 'Seeker A', 'age': 20, 'city': 'T'})
-        
+        create_job_seeker({'telegram_id': 13001, 'password': 'p', 'phone': '13001', 'email': '13001@a.a',
+                           'full_name': 'Seeker A', 'age': 20, 'city': 'T'})
+
         # 1. Первый вызов - из БД
         seekers1 = get_all_seekers(limit=10, offset=0)
         assert len(seekers1) == 1
-        cache_key = (10, 0)
+        cache_key = (10, 0, None, None)
         assert cache_key in _seekers_cache
 
         # 2. Модифицируем кэш
@@ -254,7 +255,8 @@ class TestUserOperations:
 
     def test_update_seeker_profile_invalid_age(self, test_db):
         """Тест обновления профиля с невалидным возрастом"""
-        create_job_seeker({'telegram_id': 14001, 'password': 'p', 'phone': '14001', 'email': '14001@a.a', 'full_name': 'Age Test', 'age': 30, 'city': 'T'})
+        create_job_seeker({'telegram_id': 14001, 'password': 'p', 'phone': '14001', 'email': '14001@a.a',
+                           'full_name': 'Age Test', 'age': 30, 'city': 'T'})
         assert update_seeker_profile(14001, age='abc') is False
         assert update_seeker_profile(14001, age=15) is False
         user = get_user_by_id(14001)
@@ -272,13 +274,15 @@ class TestUserOperations:
         })
         employers = get_all_employers(limit=5)
         assert len(employers) == 2
-        assert employers[0]['company_name'] == 'Co 2' # Sorted by created_at desc
+        assert employers[0]['company_name'] == 'Co 2'  # Sorted by created_at desc
 
     def test_delete_accounts(self, test_db):
         """Тест удаления аккаунтов"""
         # Создаем
-        create_job_seeker({'telegram_id': 10001, 'password': 'p', 'phone': '10001', 'email': '10001@a.a', 'full_name': 'del', 'age': 20, 'city': 'T'})
-        create_employer({'telegram_id': 10002, 'password': 'p', 'company_name': 'del_co', 'contact_person': 'CP', 'phone': '10002', 'email': '10002@a.a', 'city': 'T'})
+        create_job_seeker({'telegram_id': 10001, 'password': 'p', 'phone': '10001', 'email': '10001@a.a',
+                           'full_name': 'del', 'age': 20, 'city': 'T'})
+        create_employer({'telegram_id': 10002, 'password': 'p', 'company_name': 'del_co', 'contact_person': 'CP',
+                         'phone': '10002', 'email': '10002@a.a', 'city': 'T'})
 
         # Проверяем, что созданы
         assert get_user_by_id(10001) is not None
@@ -300,7 +304,8 @@ class TestUserOperations:
     def test_update_telegram_id(self, test_db):
         """Тест обновления telegram_id"""
         # Создаем
-        create_job_seeker({'telegram_id': 11001, 'password': 'p', 'phone': '11001', 'email': '11001@a.a', 'full_name': 'upd', 'age': 20, 'city': 'T'})
+        create_job_seeker({'telegram_id': 11001, 'password': 'p', 'phone': '11001', 'email': '11001@a.a',
+                           'full_name': 'upd', 'age': 20, 'city': 'T'})
         user = get_user_by_credentials('11001@a.a')[0]
         # Обновляем
         assert update_telegram_id(11001, 11002, 'seeker', user['id']) is True
@@ -313,10 +318,16 @@ class TestUserOperations:
     def test_update_telegram_id_integrity_error(self, test_db):
         """Тест ошибки обновления telegram_id при дубликате"""
         # Создаем
-        create_job_seeker({'telegram_id': 11001, 'password': 'p', 'phone': '11001', 'email': '11001@a.a', 'full_name': 'upd', 'age': 20, 'city': 'T'})
+        create_job_seeker({
+            'telegram_id': 11001, 'password': 'p', 'phone': '11001',
+            'email': '11001@a.a', 'full_name': 'upd', 'age': 20, 'city': 'T'
+        })
         user = get_user_by_credentials('11001@a.a')[0]
         # Создаем второго пользователя с ID, на который будем обновлять
-        create_job_seeker({'telegram_id': 11002, 'password': 'p', 'phone': '11002', 'email': '11002@a.a', 'full_name': 'existing', 'age': 20, 'city': 'T'})
+        create_job_seeker({
+            'telegram_id': 11002, 'password': 'p', 'phone': '11002',
+            'email': '11002@a.a', 'full_name': 'existing', 'age': 20, 'city': 'T'
+        })
         # Пытаемся обновить telegram_id первого пользователя на ID второго (уже занят)
         assert update_telegram_id(11001, 11002, 'seeker', user['id']) is False
 
@@ -366,16 +377,17 @@ class TestUserOperations:
     def test_update_telegram_id_no_last_login_column(self, test_db):
         """Тест обновления telegram_id в таблице без last_login"""
         from unittest.mock import patch
-        create_job_seeker({'telegram_id': 16001, 'password': 'p', 'phone': '16001', 'email': '16001@a.a', 'full_name': 'upd', 'age': 20, 'city': 'T'})
+        create_job_seeker({'telegram_id': 16001, 'password': 'p', 'phone': '16001', 'email': '16001@a.a',
+                           'full_name': 'upd', 'age': 20, 'city': 'T'})
         user = get_user_by_credentials('16001@a.a')[0]
 
         with patch('database.users.execute_query') as mock_execute:
             mock_execute.side_effect = [
                 sqlite3.OperationalError("no such column: last_login"),
-                1, 
-                1  
+                1,
+                1
             ]
-            
+
             assert update_telegram_id(16001, 16002, 'seeker', user['id']) is True
             assert mock_execute.call_count == 3
             assert "last_login" not in mock_execute.call_args_list[1][0][0]
@@ -440,39 +452,47 @@ class TestUserOperations:
         from unittest.mock import patch
         # Mock execute_query to return 0 (no rows affected)
         with patch('database.users.execute_query', return_value=0):
-            assert create_job_seeker({'telegram_id': 1, 'password': 'p', 'phone': '1', 'email': 'e', 'full_name': 'n', 'age': 20, 'city': 'c'}) is False
+            assert create_job_seeker({'telegram_id': 1, 'password': 'p', 'phone': '1', 'email': 'e',
+                                      'full_name': 'n', 'age': 20, 'city': 'c'}) is False
 
     def test_create_job_seeker_integrity_error_email(self, test_db):
         """Тест ошибки уникальности email соискателя"""
         from unittest.mock import patch
         import sqlite3
-        with patch('database.users.execute_query', side_effect=sqlite3.IntegrityError("UNIQUE constraint failed: job_seekers.email")):
-            assert create_job_seeker({'telegram_id': 1, 'password': 'p', 'phone': '1', 'email': 'e', 'full_name': 'n', 'age': 20, 'city': 'c'}) is False
+        with patch('database.users.execute_query',
+                   side_effect=sqlite3.IntegrityError("UNIQUE constraint failed: job_seekers.email")):
+            assert create_job_seeker({'telegram_id': 1, 'password': 'p', 'phone': '1', 'email': 'e',
+                                      'full_name': 'n', 'age': 20, 'city': 'c'}) is False
 
     def test_create_employer_fail_result(self, test_db):
         """Тест неудачного создания работодателя (result <= 0)"""
         from unittest.mock import patch
         with patch('database.users.execute_query', return_value=0):
-            assert create_employer({'telegram_id': 1, 'password': 'p', 'company_name': 'c', 'contact_person': 'cp', 'phone': '1', 'email': 'e', 'city': 'c'}) is False
+            assert create_employer({'telegram_id': 1, 'password': 'p', 'company_name': 'c', 'contact_person': 'cp',
+                                    'phone': '1', 'email': 'e', 'city': 'c'}) is False
 
     def test_create_employer_integrity_error_phone(self, test_db):
         """Тест ошибки уникальности телефона работодателя"""
         from unittest.mock import patch
         import sqlite3
-        with patch('database.users.execute_query', side_effect=sqlite3.IntegrityError("UNIQUE constraint failed: employers.phone")):
-            assert create_employer({'telegram_id': 1, 'password': 'p', 'company_name': 'c', 'contact_person': 'cp', 'phone': '1', 'email': 'e', 'city': 'c'}) is False
+        with patch('database.users.execute_query',
+                   side_effect=sqlite3.IntegrityError("UNIQUE constraint failed: employers.phone")):
+            assert create_employer({'telegram_id': 1, 'password': 'p', 'company_name': 'c', 'contact_person': 'cp',
+                                    'phone': '1', 'email': 'e', 'city': 'c'}) is False
 
     def test_create_employer_integrity_error_email(self, test_db):
         """Тест ошибки уникальности email работодателя"""
         from unittest.mock import patch
         import sqlite3
-        with patch('database.users.execute_query', side_effect=sqlite3.IntegrityError("UNIQUE constraint failed: employers.email")):
-            assert create_employer({'telegram_id': 1, 'password': 'p', 'company_name': 'c', 'contact_person': 'cp', 'phone': '1', 'email': 'e', 'city': 'c'}) is False
+        with patch('database.users.execute_query',
+                   side_effect=sqlite3.IntegrityError("UNIQUE constraint failed: employers.email")):
+            assert create_employer({'telegram_id': 1, 'password': 'p', 'company_name': 'c', 'contact_person': 'cp',
+                                    'phone': '1', 'email': 'e', 'city': 'c'}) is False
 
     def test_create_employer_duplicate(self, test_db):
         """Тест создания дубликата работодателя (покрытие строк 199-200)"""
         data = {
-            'telegram_id': 20001, 'password': 'p', 'company_name': 'C', 
+            'telegram_id': 20001, 'password': 'p', 'company_name': 'C',
             'contact_person': 'P', 'phone': '20001', 'email': '20001@e.e', 'city': 'C'
         }
         create_employer(data)
@@ -480,18 +500,20 @@ class TestUserOperations:
 
     def test_update_seeker_profile_age_error(self, test_db):
         """Тест ошибки преобразования возраста (покрытие строк 288-290)"""
-        create_job_seeker({'telegram_id': 1, 'password': 'p', 'phone': '1', 'email': 'e', 'full_name': 'n', 'age': 20, 'city': 'c'})
+        create_job_seeker({'telegram_id': 1, 'password': 'p', 'phone': '1', 'email': 'e',
+                           'full_name': 'n', 'age': 20, 'city': 'c'})
         # Передаем некорректный возраст И валидное поле.
         # Функция должна проигнорировать возраст (continue в except) и обновить имя.
         assert update_seeker_profile(1, age="invalid", full_name="Updated Name") is True
-        
+
         user = get_user_by_id(1)
-        assert user['age'] == 20 # Не изменился
-        assert user['full_name'] == "Updated Name" # Изменился
+        assert user['age'] == 20  # Не изменился
+        assert user['full_name'] == "Updated Name"  # Изменился
 
     def test_update_employer_profile_no_valid_fields(self, test_db):
         """Тест обновления работодателя без валидных полей (покрытие 327-329)"""
-        create_employer({'telegram_id': 2, 'password': 'p', 'company_name': 'C', 'contact_person': 'P', 'phone': '2', 'email': 'e', 'city': 'C'})
+        create_employer({'telegram_id': 2, 'password': 'p', 'company_name': 'C', 'contact_person': 'P',
+                         'phone': '2', 'email': 'e', 'city': 'C'})
         # Передаем только недопустимое поле или None
         assert update_employer_profile(2, invalid_field="val") is False
 
@@ -499,16 +521,25 @@ class TestUserOperations:
         """Тест проброса исключения в update_telegram_id (покрытие 132-133)"""
         from unittest.mock import patch
         import sqlite3
-        
+
         # Мокаем execute_query чтобы он выбросил ошибку, отличную от "no such column"
         with patch('database.users.execute_query', side_effect=sqlite3.OperationalError("Some other error")):
             assert update_telegram_id(1, 2, 'seeker', 1) is False
 
     def test_update_employer_profile_loop(self, test_db):
         """Тест цикла обновления профиля работодателя (покрытие строк 327-329)"""
-        create_employer({'telegram_id': 2, 'password': 'p', 'company_name': 'c', 'contact_person': 'cp', 'phone': '2', 'email': 'e', 'city': 'c'})
+        create_employer({
+            'telegram_id': 2,
+            'password': 'p',
+            'company_name': 'c',
+            'contact_person': 'cp',
+            'phone': '2',
+            'email': 'e',
+            'city': 'c'
+        })
         # Передаем None и недопустимое поле
-        assert update_employer_profile(2, company_name=None, invalid_field="val") is False
+        assert update_employer_profile(2, company_name=None,
+                                       invalid_field="val") is False
         # Передаем валидное поле
         assert update_employer_profile(2, company_name="New Co") is True
 
@@ -516,7 +547,8 @@ class TestUserOperations:
         """Тест общей ошибки при создании работодателя"""
         from unittest.mock import patch
         with patch('database.users.execute_query', side_effect=Exception("Generic Error")):
-            assert create_employer({'telegram_id': 1, 'password': 'p', 'company_name': 'c', 'contact_person': 'cp', 'phone': '1', 'email': 'e', 'city': 'c'}) is False
+            assert create_employer({'telegram_id': 1, 'password': 'p', 'company_name': 'c', 'contact_person': 'cp',
+                                    'phone': '1', 'email': 'e', 'city': 'c'}) is False
 
     def test_update_seeker_profile_fail_result(self, test_db):
         """Тест неудачного обновления профиля соискателя (result <= 0)"""
@@ -533,63 +565,47 @@ class TestUserOperations:
     def test_create_seeker_integrity_errors(self, test_db):
         """Тест различных ошибок целостности при создании соискателя"""
         from unittest.mock import patch
-        
+
         # 1. Duplicate ID
-        with patch('database.users.execute_query', side_effect=sqlite3.IntegrityError("UNIQUE constraint failed: job_seekers.telegram_id")):
+        with patch(
+            'database.users.execute_query',
+            side_effect=sqlite3.IntegrityError(
+                "UNIQUE constraint failed: job_seekers.telegram_id"
+            )
+        ):
             assert create_job_seeker({'telegram_id': 1}) is False
-            
+
         # 2. Duplicate Phone
-        with patch('database.users.execute_query', side_effect=sqlite3.IntegrityError("UNIQUE constraint failed: job_seekers.phone")):
+        with patch(
+            'database.users.execute_query',
+            side_effect=sqlite3.IntegrityError("UNIQUE constraint failed: job_seekers.phone")
+        ):
             assert create_job_seeker({'telegram_id': 1, 'phone': '123'}) is False
-            
+
         # 3. Duplicate Email
-        with patch('database.users.execute_query', side_effect=sqlite3.IntegrityError("UNIQUE constraint failed: job_seekers.email")):
+        with patch('database.users.execute_query',
+                   side_effect=sqlite3.IntegrityError("UNIQUE constraint failed: job_seekers.email")):
             assert create_job_seeker({'telegram_id': 1, 'email': 'a@a.a'}) is False
 
     def test_create_employer_integrity_errors(self, test_db):
         """Тест различных ошибок целостности при создании работодателя"""
         from unittest.mock import patch
-        
-        # 1. Duplicate ID
-        with patch('database.users.execute_query', side_effect=sqlite3.IntegrityError("UNIQUE constraint failed: employers.telegram_id")):
-            assert create_employer({'telegram_id': 1}) is False
-            
-        # 2. Duplicate Phone
-        with patch('database.users.execute_query', side_effect=sqlite3.IntegrityError("UNIQUE constraint failed: employers.phone")):
-            assert create_employer({'telegram_id': 1, 'phone': '123'}) is False
-            
-        # 3. Duplicate Email
-        with patch('database.users.execute_query', side_effect=sqlite3.IntegrityError("UNIQUE constraint failed: employers.email")):
-            assert create_employer({'telegram_id': 1, 'email': 'a@a.a'}) is False
 
-    def test_create_seeker_integrity_errors(self, test_db):
-        """Тест различных ошибок целостности при создании соискателя"""
-        from unittest.mock import patch
-        
         # 1. Duplicate ID
-        with patch('database.users.execute_query', side_effect=sqlite3.IntegrityError("UNIQUE constraint failed: job_seekers.telegram_id")):
-            assert create_job_seeker({'telegram_id': 1}) is False
-            
-        # 2. Duplicate Phone
-        with patch('database.users.execute_query', side_effect=sqlite3.IntegrityError("UNIQUE constraint failed: job_seekers.phone")):
-            assert create_job_seeker({'telegram_id': 1, 'phone': '123'}) is False
-            
-        # 3. Duplicate Email
-        with patch('database.users.execute_query', side_effect=sqlite3.IntegrityError("UNIQUE constraint failed: job_seekers.email")):
-            assert create_job_seeker({'telegram_id': 1, 'email': 'a@a.a'}) is False
-
-    def test_create_employer_integrity_errors(self, test_db):
-        """Тест различных ошибок целостности при создании работодателя"""
-        from unittest.mock import patch
-        
-        # 1. Duplicate ID
-        with patch('database.users.execute_query', side_effect=sqlite3.IntegrityError("UNIQUE constraint failed: employers.telegram_id")):
+        with patch(
+            'database.users.execute_query',
+            side_effect=sqlite3.IntegrityError("UNIQUE constraint failed: employers.telegram_id")
+        ):
             assert create_employer({'telegram_id': 1}) is False
-            
+
         # 2. Duplicate Phone
-        with patch('database.users.execute_query', side_effect=sqlite3.IntegrityError("UNIQUE constraint failed: employers.phone")):
+        with patch(
+            'database.users.execute_query',
+            side_effect=sqlite3.IntegrityError("UNIQUE constraint failed: employers.phone")
+        ):
             assert create_employer({'telegram_id': 1, 'phone': '123'}) is False
-            
+
         # 3. Duplicate Email
-        with patch('database.users.execute_query', side_effect=sqlite3.IntegrityError("UNIQUE constraint failed: employers.email")):
+        with patch('database.users.execute_query',
+                   side_effect=sqlite3.IntegrityError("UNIQUE constraint failed: employers.email")):
             assert create_employer({'telegram_id': 1, 'email': 'a@a.a'}) is False

@@ -1,0 +1,31 @@
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+    -   id: trailing-whitespace
+    -   id: end-of-file-fixer
+    -   id: check-yaml
+    -   id: check-added-large-files
+
+-   repo: https://github.com/PyCQA/flake8
+    rev: 6.0.0
+    hooks:
+    -   id: flake8
+        # Согласуем настройки с CI
+        args: [--max-line-length=127, --max-complexity=10]
+
+-   repo: https://github.com/PyCQA/bandit
+    rev: 1.7.5
+    hooks:
+    -   id: bandit
+        args: ["-ll", "-r", "."]
+
+-   repo: local
+    hooks:
+    -   id: pytest
+        name: Run Tests
+        entry: pytest
+        language: system
+        pass_filenames: false
+        always_run: true
+        args: ["--cov=.", "--cov-report=term-missing"]

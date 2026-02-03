@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 from handlers.settings import SettingsHandlers
 
+
 class TestSettingsHandlers:
     @pytest.fixture
     def bot(self):
@@ -32,9 +33,9 @@ class TestSettingsHandlers:
         user_data = {'full_name': 'John', 'profession': 'Dev'}
         with patch('database.get_user_by_id', return_value=user_data), \
              patch('database.set_user_state') as mock_set:
-            
+
             handler.handle_seeker_setting(message, 'profession')
-            
+
             mock_set.assert_called()
             assert mock_set.call_args[0][1]['action'] == 'edit_seeker_field'
             handler.bot.send_message.assert_called()
@@ -43,14 +44,15 @@ class TestSettingsHandlers:
     def test_process_field_update_success(self, handler, message):
         """Успешное обновление поля"""
         message.text = "New Profession"
-        user_state = {'action': 'edit_seeker_field', 'field': 'profession', 'field_display': 'Профессия', 'step': 'enter_new_value'}
-        
+        user_state = {'action': 'edit_seeker_field', 'field': 'profession', 'field_display': 'Профессия',
+                      'step': 'enter_new_value'}
+
         with patch('database.get_user_state', return_value=user_state), \
              patch('database.update_seeker_profile', return_value=True), \
              patch('database.clear_user_state') as mock_clear:
-            
+
             handler.process_seeker_field_update(message)
-            
+
             mock_clear.assert_called_with(456)
             handler.bot.send_message.assert_called()
             assert "успешно обновлено" in handler.bot.send_message.call_args[0][1]
@@ -60,9 +62,9 @@ class TestSettingsHandlers:
         user_data = {'full_name': 'John'}
         with patch('database.get_user_by_id', return_value=user_data), \
              patch('database.set_user_state') as mock_set:
-            
+
             handler.handle_seeker_setting(message, 'non_existent_field')
-            
+
             mock_set.assert_called()
             assert mock_set.call_args[0][1]['field'] == 'non_existent_field'
             assert "non_existent_field" in handler.bot.send_message.call_args[0][1]
@@ -71,9 +73,9 @@ class TestSettingsHandlers:
         """Ошибка БД при обновлении поля"""
         message.text = "New Value"
         user_state = {'step': 'enter_new_value', 'field': 'profession', 'field_display': 'Профессия'}
-        
+
         with patch('database.get_user_state', return_value=user_state), \
-             patch('database.update_seeker_profile', return_value=False): # DB fails
+             patch('database.update_seeker_profile', return_value=False):  # DB fails
             handler.process_seeker_field_update(message)
             handler.bot.send_message.assert_called()
             assert "Ошибка при обновлении" in handler.bot.send_message.call_args[0][1]
@@ -84,7 +86,7 @@ class TestSettingsHandlers:
         user_state = {'step': 'enter_new_value', 'field': 'phone', 'field_display': 'Телефон'}
         with patch('database.get_user_state', return_value=user_state), \
              patch('utils.is_valid_uzbek_phone', return_value=False):
-            
+
             handler.process_seeker_field_update(message)
             assert "Неверный формат номера" in handler.bot.send_message.call_args[0][1]
 
@@ -94,7 +96,7 @@ class TestSettingsHandlers:
         user_state = {'step': 'enter_new_value', 'field': 'email', 'field_display': 'Email'}
         with patch('database.get_user_state', return_value=user_state), \
              patch('utils.is_valid_email', return_value=False):
-            
+
             handler.process_seeker_field_update(message)
             assert "Неверный формат email" in handler.bot.send_message.call_args[0][1]
 
@@ -110,13 +112,13 @@ class TestSettingsHandlers:
         """Возврат из подменю"""
         message.text = '↩️ Назад в настройки'
         user_state = {'action': 'edit_seeker_field', 'field': 'profession', 'field_display': 'P', 'current_value': 'V'}
-        
+
         with patch('database.get_user_state', return_value=user_state), \
              patch('database.clear_user_state') as mock_clear, \
              patch.object(handler, 'handle_settings_menu') as mock_menu:
-            
+
             handler.handle_seeker_submenu_action(message)
-            
+
             mock_clear.assert_called_with(456)
             mock_menu.assert_called_with(message)
 
@@ -124,25 +126,25 @@ class TestSettingsHandlers:
         """Выбор действия редактирования"""
         message.text = '✏️ Изменить'
         user_state = {'action': 'edit_seeker_field', 'field': 'profession', 'field_display': 'P', 'current_value': 'V'}
-        
+
         with patch('database.get_user_state', return_value=user_state), \
              patch('database.set_user_state') as mock_set:
-            
+
             handler.handle_seeker_submenu_action(message)
-            
-            assert user_state['step'] == 'enter_new_value'
+
+            assert user_state['step'] == 'edit_seeker_profession_sphere'
             mock_set.assert_called_with(456, user_state)
             handler.bot.send_message.assert_called()
-            assert "Введите новое значение" in handler.bot.send_message.call_args[0][1]
+            assert "Выберите сферу деятельности" in handler.bot.send_message.call_args[0][1]
 
     def test_process_field_update_cancel(self, handler, message):
         """Отмена обновления поля"""
         message.text = "❌ Отмена"
         with patch('utils.cancel_request', return_value=True), \
              patch('database.clear_user_state') as mock_clear:
-            
+
             handler.process_seeker_field_update(message)
-            
+
             mock_clear.assert_called_with(456)
             handler.bot.send_message.assert_called()
             assert "Изменение отменено" in handler.bot.send_message.call_args[0][1]
@@ -151,7 +153,7 @@ class TestSettingsHandlers:
         """Слишком короткое значение"""
         message.text = "A"
         user_state = {'step': 'enter_new_value', 'field': 'profession', 'field_display': 'P'}
-        
+
         with patch('database.get_user_state', return_value=user_state):
             handler.process_seeker_field_update(message)
             handler.bot.send_message.assert_called()
@@ -161,7 +163,7 @@ class TestSettingsHandlers:
         """Слишком длинное значение"""
         message.text = "A" * 501
         user_state = {'step': 'enter_new_value', 'field': 'profession', 'field_display': 'P'}
-        
+
         with patch('database.get_user_state', return_value=user_state):
             handler.process_seeker_field_update(message)
             handler.bot.send_message.assert_called()
@@ -193,22 +195,22 @@ class TestSettingsHandlers:
         """Действие работодателя: удалить"""
         message.text = '🗑️ Удалить компанию'
         user_data = {'company_name': 'Corp'}
-        
+
         with patch('database.get_user_by_id', return_value=user_data), \
              patch.object(handler, 'handle_delete_account') as mock_delete:
-            
+
             handler.handle_employer_action(message)
             mock_delete.assert_called_with(message)
 
     def test_handle_delete_account_prompt(self, handler, message):
         """Запрос на удаление аккаунта"""
         user_data = {'full_name': 'John'}
-        
+
         with patch('database.get_user_by_id', return_value=user_data), \
              patch('database.set_user_state') as mock_set:
-            
+
             handler.handle_delete_account(message)
-            
+
             mock_set.assert_called()
             assert mock_set.call_args[0][1]['action'] == 'delete_account'
             handler.bot.send_message.assert_called()
@@ -218,13 +220,13 @@ class TestSettingsHandlers:
         """Подтверждение удаления соискателя"""
         message.text = '✅ Да, удалить аккаунт'
         user_state = {'action': 'delete_account', 'role': 'seeker', 'name': 'John', 'account_type': 'соискателя'}
-        
+
         with patch('database.get_user_state', return_value=user_state), \
              patch('database.delete_seeker_account', return_value=True), \
              patch('database.clear_user_state') as mock_clear:
-            
+
             handler.confirm_delete_account(message)
-            
+
             mock_clear.assert_called_with(456)
             handler.bot.send_message.assert_called()
             assert "Аккаунт удален" in handler.bot.send_message.call_args[0][1]
@@ -233,13 +235,13 @@ class TestSettingsHandlers:
         """Подтверждение удаления работодателя"""
         message.text = '✅ Да, удалить аккаунт'
         user_state = {'action': 'delete_account', 'role': 'employer', 'name': 'Corp', 'account_type': 'компании'}
-        
+
         with patch('database.get_user_state', return_value=user_state), \
              patch('database.delete_employer_account', return_value=True), \
              patch('database.clear_user_state') as mock_clear:
-            
+
             handler.confirm_delete_account(message)
-            
+
             mock_clear.assert_called_with(456)
             handler.bot.send_message.assert_called()
             assert "Аккаунт удален" in handler.bot.send_message.call_args[0][1]
@@ -249,8 +251,8 @@ class TestSettingsHandlers:
         message.text = '✅ Да, удалить аккаунт'
         user_state = {'action': 'delete_account', 'role': 'seeker'}
         with patch('database.get_user_state', return_value=user_state), \
-             patch('database.delete_seeker_account', return_value=False): # Ошибка удаления
-            
+             patch('database.delete_seeker_account', return_value=False):  # Ошибка удаления
+
             handler.confirm_delete_account(message)
             assert "Ошибка при удалении" in handler.bot.send_message.call_args[0][1]
 
@@ -258,12 +260,12 @@ class TestSettingsHandlers:
         """Отмена удаления аккаунта"""
         message.text = '❌ Нет, отменить'
         user_state = {'action': 'delete_account', 'role': 'seeker'}
-        
+
         with patch('database.get_user_state', return_value=user_state), \
              patch('database.clear_user_state') as mock_clear:
-            
+
             handler.confirm_delete_account(message)
-            
+
             mock_clear.assert_called_with(456)
             handler.bot.send_message.assert_called()
             assert "Удаление отменено" in handler.bot.send_message.call_args[0][1]
@@ -272,25 +274,26 @@ class TestSettingsHandlers:
         """Неверный выбор при подтверждении удаления"""
         message.text = "может быть"
         user_state = {'action': 'delete_account', 'role': 'seeker', 'name': 'John'}
-        
+
         with patch('database.get_user_state', return_value=user_state), \
              patch.object(handler, 'handle_delete_account') as mock_re_prompt:
-            
+
             handler.confirm_delete_account(message)
-            
-            handler.bot.send_message.assert_called_with(message.chat.id, "❌ Пожалуйста, выберите один из вариантов.", parse_mode='Markdown')
+
+            handler.bot.send_message.assert_called_with(message.chat.id, "❌ Пожалуйста, выберите один из вариантов.",
+                                                        parse_mode='Markdown')
             mock_re_prompt.assert_called_with(message)
 
     def test_handle_seeker_submenu_action_add(self, handler, message):
         """Выбор действия добавить"""
         message.text = '➕ Добавить'
         user_state = {'action': 'edit_seeker_field', 'field': 'skills', 'field_display': 'S', 'current_value': None}
-        
+
         with patch('database.get_user_state', return_value=user_state), \
              patch('database.set_user_state') as mock_set:
-            
+
             handler.handle_seeker_submenu_action(message)
-            
+
             assert user_state['step'] == 'enter_new_value'
             mock_set.assert_called_with(456, user_state)
             handler.bot.send_message.assert_called()
@@ -319,9 +322,9 @@ class TestSettingsHandlers:
         user_data = {'company_name': 'Corp'}
         with patch('database.get_user_by_id', return_value=user_data), \
              patch('database.set_user_state') as mock_set:
-            
+
             handler.handle_employer_setting(message, 'company_name')
-            
+
             mock_set.assert_called()
             assert mock_set.call_args[0][1]['action'] == 'edit_employer_field'
             assert mock_set.call_args[0][1]['field'] == 'company_name'
@@ -332,18 +335,18 @@ class TestSettingsHandlers:
         """Успешное обновление поля работодателя"""
         message.text = "New Corp Name"
         user_state = {
-            'action': 'edit_employer_field', 
-            'field': 'company_name', 
-            'field_display': 'Название компании', 
+            'action': 'edit_employer_field',
+            'field': 'company_name',
+            'field_display': 'Название компании',
             'step': 'enter_new_value'
         }
-        
+
         with patch('database.get_user_state', return_value=user_state), \
              patch('database.update_employer_profile', return_value=True), \
              patch('database.clear_user_state') as mock_clear:
-            
+
             handler.process_employer_field_update(message)
-            
+
             mock_clear.assert_called_with(456)
             handler.bot.send_message.assert_called()
             assert "успешно обновлено" in handler.bot.send_message.call_args[0][1]
@@ -357,3 +360,57 @@ class TestSettingsHandlers:
             handler.process_employer_field_update(message)
             handler.bot.send_message.assert_called()
             assert "Ошибка при обновлении" in handler.bot.send_message.call_args[0][1]
+
+    def test_process_seeker_profession_sphere_cancel(self, handler, message):
+        """Отмена выбора сферы профессии"""
+        message.text = "❌ Отмена"
+        with patch('utils.cancel_request', return_value=True), \
+             patch('database.clear_user_state') as mock_clear:
+            handler.process_seeker_profession_sphere(message)
+            mock_clear.assert_called()
+
+    def test_process_seeker_profession_sphere_other(self, handler, message):
+        """Выбор 'Другое' в сфере профессии"""
+        message.text = "Другое"
+        user_state = {'step': 'edit_seeker_profession_sphere'}
+        with patch('database.get_user_state', return_value=user_state), \
+             patch('database.set_user_state') as mock_set:
+            handler.process_seeker_profession_sphere(message)
+            assert mock_set.call_args[0][1]['step'] == 'enter_new_value'
+
+    def test_process_seeker_profession_sphere_valid(self, handler, message):
+        """Выбор валидной сферы профессии"""
+        message.text = "IT и Интернет"
+        user_state = {'step': 'edit_seeker_profession_sphere'}
+        with patch('database.get_user_state', return_value=user_state), \
+             patch('database.set_user_state') as mock_set:
+            handler.process_seeker_profession_sphere(message)
+            assert mock_set.call_args[0][1]['step'] == 'edit_seeker_profession_specific'
+
+    def test_process_seeker_profession_specific_back(self, handler, message):
+        """Кнопка Назад при выборе конкретной профессии"""
+        message.text = "⬅️ Назад"
+        user_state = {'step': 'edit_seeker_profession_specific'}
+        with patch('database.get_user_state', return_value=user_state), \
+             patch('database.set_user_state') as mock_set:
+            handler.process_seeker_profession_specific(message)
+            assert mock_set.call_args[0][1]['step'] == 'edit_seeker_profession_sphere'
+
+    def test_process_seeker_profession_specific_other(self, handler, message):
+        """Выбор 'Другое' в конкретной профессии"""
+        message.text = "Другое"
+        user_state = {'step': 'edit_seeker_profession_specific'}
+        with patch('database.get_user_state', return_value=user_state), \
+             patch('database.set_user_state') as mock_set:
+            handler.process_seeker_profession_specific(message)
+            assert mock_set.call_args[0][1]['step'] == 'enter_new_value'
+
+    def test_process_seeker_profession_specific_valid(self, handler, message):
+        """Выбор валидной конкретной профессии"""
+        message.text = "Dev"
+        user_state = {'step': 'edit_seeker_profession_specific'}
+        with patch('database.get_user_state', return_value=user_state), \
+             patch('database.update_seeker_profile', return_value=True), \
+             patch('database.clear_user_state') as mock_clear:
+            handler.process_seeker_profession_specific(message)
+            mock_clear.assert_called()

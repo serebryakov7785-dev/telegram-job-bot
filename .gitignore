@@ -1,13 +1,19 @@
+# Файл с переменными окружения (содержит токены!)
+.env
+
+# База данных SQLite
+*.db
+*.db-journal*
+
+# Лог-файлы
+*.log
+
+# Папка с резервными копиями
+/backups/
+
+# Кэш и скомпилированные файлы Python
 __pycache__/
 *.py[cod]
-*$py.class
-.env
+
+# Виртуальное окружение
 venv/
-env/
-.vscode/
-.idea/
-*.log
-*.db
-backups/
-.pytest_cache/
-.mutmut-cache

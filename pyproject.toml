@@ -1,12 +1,12 @@
-[tool.mutmut]
-# Директории для запуска тестов
-tests_dir = "tests/"
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
 
-# Исходный код, который нужно мутировать
-paths_to_mutate = [
-    "handlers/",
-    "database/",
-    "utils.py",
-    "bot.py",
+[tool.coverage.run]
+omit = [
+    "fix_mutmut.py",
+    "remove_bom.py",
+    "setup_env.py",
+    "tests/*",
+    "conf.py"
 ]
-runner = "pytest -x" # Останавливать тесты после первой ошибки для ускорения

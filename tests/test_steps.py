@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 import keyboards
 from handlers.steps import StepHandlers
 
+
 class TestStepHandlers:
     @pytest.fixture
     def bot(self):
@@ -41,7 +42,7 @@ class TestStepHandlers:
         with patch('database.get_user_state', return_value={'step': 'some_step'}), \
              patch('utils.cancel_request', return_value=True), \
              patch.object(handler, 'cancel_current_step') as mock_cancel:
-            
+
             assert handler.handle_steps(message) is True
             mock_cancel.assert_called_with(456, 123)
 
@@ -82,9 +83,9 @@ class TestStepHandlers:
         user_state = {'step': 'vacancy_title'}
         with patch('database.get_user_state', return_value=user_state), \
              patch('database.clear_user_state') as mock_clear:
-            
+
             handler.cancel_current_step(456, 123)
-            
+
             mock_clear.assert_called_with(456)
             handler.bot.send_message.assert_called()
             assert "Создание вакансии отменено" in handler.bot.send_message.call_args[0][1]
@@ -94,9 +95,9 @@ class TestStepHandlers:
         user_state = {'step': 'phone'}
         with patch('database.get_user_state', return_value=user_state), \
              patch('database.clear_user_state') as mock_clear:
-            
+
             handler.cancel_current_step(456, 123)
-            
+
             mock_clear.assert_called_with(456)
             handler.auth_handlers.role.cancel_registration.assert_called_with(123, 456, "Регистрация отменена")
 
@@ -105,16 +106,16 @@ class TestStepHandlers:
         user_state = {'step': 'enter_new_value', 'action': 'edit_seeker_field'}
         with patch('database.get_user_state', return_value=user_state), \
              patch('database.clear_user_state') as mock_clear:
-            
+
             handler.cancel_current_step(456, 123)
-            
+
             mock_clear.assert_called_with(456)
             handler.bot.send_message.assert_called()
             assert "Изменение отменено" in handler.bot.send_message.call_args[0][1]
 
     def test_cancel_current_step_no_action(self, handler):
         """Тест отмены шага настроек без 'action' в состоянии"""
-        user_state = {'step': 'enter_new_value'} # 'action' отсутствует
+        user_state = {'step': 'enter_new_value'}  # 'action' отсутствует
         with patch('database.get_user_state', return_value=user_state), \
              patch('database.clear_user_state'):
             handler.cancel_current_step(456, 123)
@@ -141,7 +142,7 @@ class TestStepHandlers:
         with patch('database.get_user_state', return_value=user_state), \
              patch.object(handler.auth_handlers, 'process_seeker_phone', side_effect=Exception("Auth Error")), \
              patch('database.clear_user_state') as mock_clear:
-            
+
             assert handler.handle_steps(message) is True
             mock_clear.assert_called()
             handler.bot.send_message.assert_called()
@@ -156,7 +157,7 @@ class TestStepHandlers:
             ('edit_vacancy_salary', 'process_edit_salary'),
             ('edit_vacancy_type', 'process_edit_type')
         ]
-        
+
         for step_name, method_name in steps:
             with patch('database.get_user_state', return_value={'step': step_name}):
                 assert handler.handle_steps(message) is True
@@ -170,7 +171,7 @@ class TestStepHandlers:
             ('region', 'process_seeker_region'),
             ('age', 'finish_seeker_registration')
         ]
-        
+
         for step_name, method_name in steps:
             user_state = {'step': step_name, 'role': 'seeker'}
             with patch('database.get_user_state', return_value=user_state):
@@ -187,7 +188,7 @@ class TestStepHandlers:
             ('city_selection', 'process_employer_city_selection'),
             ('business_activity', 'process_business_activity')
         ]
-        
+
         for step_name, method_name in steps:
             user_state = {'step': step_name, 'role': 'employer'}
             with patch('database.get_user_state', return_value=user_state):
@@ -196,7 +197,7 @@ class TestStepHandlers:
 
     def test_handle_steps_registration_no_role(self, handler, message):
         """Тест шага регистрации без указания роли в состоянии"""
-        user_state = {'step': 'phone'} # 'role' отсутствует
+        user_state = {'step': 'phone'}  # 'role' отсутствует
         with patch('database.get_user_state', return_value=user_state):
             # Ожидаем, что обработчик вернет False, т.к. не сможет найти нужный метод
             assert handler.handle_steps(message) is False
@@ -207,9 +208,9 @@ class TestStepHandlers:
             ('admin_broadcast_message', 'process_broadcast_message'),
             ('admin_broadcast_confirm', 'process_broadcast_confirm')
         ]
-        
+
         handler.admin_handlers = MagicMock()
-        
+
         for step_name, method_name in steps:
             with patch('database.get_user_state', return_value={'step': step_name}):
                 assert handler.handle_steps(message) is True
@@ -228,9 +229,9 @@ class TestStepHandlers:
             ('login_email', 'process_login_email'),
             ('login_password', 'process_login_password')
         ]
-        
+
         handler.auth_handlers = MagicMock()
-        
+
         for step_name, method_name in steps:
             with patch('database.get_user_state', return_value={'step': step_name}):
                 assert handler.handle_steps(message) is True
@@ -259,7 +260,7 @@ class TestStepHandlerFallbacks:
 
     def test_handle_vacancy_steps_no_handler(self, bot, message):
         """Тест шагов вакансии без установленного обработчика"""
-        handler = StepHandlers(bot) # No employer_handlers
+        handler = StepHandlers(bot)  # No employer_handlers
         user_state = {'step': 'vacancy_title'}
         with patch('database.get_user_state', return_value=user_state):
             assert handler.handle_steps(message) is False
@@ -270,9 +271,9 @@ class TestStepHandlerFallbacks:
         user_state = {'step': 'phone'}
         with patch('database.get_user_state', return_value=user_state), \
              patch('database.clear_user_state') as mock_clear:
-            
+
             handler.cancel_current_step(message.from_user.id, message.chat.id)
-            
+
             mock_clear.assert_called_with(message.from_user.id)
             bot.send_message.assert_called()
             assert "Регистрация отменена" in bot.send_message.call_args[0][1]
@@ -283,9 +284,9 @@ class TestStepHandlerFallbacks:
         user_state = {'step': 'some_unknown_step'}
         with patch('database.get_user_state', return_value=user_state), \
              patch('database.clear_user_state') as mock_clear:
-            
+
             handler.cancel_current_step(message.from_user.id, message.chat.id)
-            
+
             mock_clear.assert_called_with(message.from_user.id)
             bot.send_message.assert_called()
             assert "Действие отменено" in bot.send_message.call_args[0][1]
@@ -294,10 +295,10 @@ class TestStepHandlerFallbacks:
         """Тест fallback логики для восстановления пароля"""
         handler = StepHandlers(bot, auth_handlers=None)
         user_state = {'step': 'recovery'}
-        
+
         with patch('database.get_user_state', return_value=user_state), \
              patch('handlers.auth.login_auth.LoginAuth') as MockLoginAuth:
-            
+
             mock_login = MockLoginAuth.return_value
             assert handler.handle_steps(message) is True
             mock_login.process_recovery.assert_called_with(message)
@@ -310,14 +311,14 @@ class TestStepHandlerFallbacks:
         handler = StepHandlers(bot, auth_handlers)
 
         user_state = {'step': 'phone', 'role': 'seeker'}
-        
+
         # Мокаем функцию, которая вызовется внутри и вызовет ошибку
         with patch('database.get_user_state', return_value=user_state), \
              patch.object(auth_handlers.seeker, 'process_seeker_phone', side_effect=Exception("Test Error")), \
              patch('database.clear_user_state') as mock_clear:
-            
+
             assert handler.handle_steps(message) is True
-            
+
             mock_clear.assert_called_with(456)
             bot.send_message.assert_called()
             assert "Произошла ошибка" in bot.send_message.call_args[0][1]
@@ -342,10 +343,10 @@ class TestStepHandlerFallbacks:
         """Тест fallback для соискателя"""
         handler = StepHandlers(bot, auth_handlers=None)
         user_state = {'step': 'full_name', 'role': 'seeker'}
-        
+
         with patch('database.get_user_state', return_value=user_state), \
              patch('handlers.auth.seeker_auth.SeekerAuth') as MockSeeker:
-            
+
             mock_inst = MockSeeker.return_value
             assert handler.handle_steps(message) is True
             mock_inst.process_seeker_name.assert_called_with(message)
@@ -354,10 +355,10 @@ class TestStepHandlerFallbacks:
         """Тест fallback для работодателя"""
         handler = StepHandlers(bot, auth_handlers=None)
         user_state = {'step': 'contact_person', 'role': 'employer'}
-        
+
         with patch('database.get_user_state', return_value=user_state), \
              patch('handlers.auth.employer_auth.EmployerAuth') as MockEmployer:
-            
+
             mock_inst = MockEmployer.return_value
             assert handler.handle_steps(message) is True
             mock_inst.process_employer_contact.assert_called_with(message)
@@ -367,7 +368,7 @@ class TestStepHandlerFallbacks:
         handler = StepHandlers(bot)
         # Mock auth_handlers
         handler.auth_handlers = MagicMock()
-        
+
         user_state = {'step': 'recovery'}
         with patch('database.get_user_state', return_value=user_state):
             assert handler.handle_steps(message) is True
@@ -384,13 +385,13 @@ class TestStepHandlerFallbacks:
         """Тест логирования исключения в handle_steps_with_auth_handlers"""
         handler = StepHandlers(bot)
         handler.auth_handlers = MagicMock()
-        
+
         user_state = {'step': 'phone', 'role': 'seeker'}
         with patch('database.get_user_state', return_value=user_state), \
              patch.object(handler.auth_handlers, 'process_seeker_phone', side_effect=Exception("Auth Error")), \
              patch('database.clear_user_state'), \
              patch('logging.error') as mock_log:
-            
+
             handler.handle_steps(message)
             mock_log.assert_called()
 

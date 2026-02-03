@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 from handlers.auth.seeker_auth import SeekerAuth
 
+
 class TestSeekerAuth:
     @pytest.fixture
     def bot(self):
@@ -27,9 +28,9 @@ class TestSeekerAuth:
              patch('utils.format_phone', return_value="+998901234567"), \
              patch('database.execute_query', return_value=None), \
              patch('database.set_user_state') as mock_set:
-            
+
             handler.process_seeker_phone(message)
-            
+
             mock_set.assert_called()
             # Проверяем переход на следующий шаг
             assert mock_set.call_args[0][1]['step'] == 'email'
@@ -42,13 +43,13 @@ class TestSeekerAuth:
              patch('utils.is_valid_uzbek_phone', return_value=True), \
              patch('utils.format_phone', return_value="+998901234567"), \
              patch('database.execute_query', return_value={'id': 1}), \
-             patch('builtins.print') as mock_print: # Нашли дубликат
-            
+             patch('logging.warning') as mock_log:  # Нашли дубликат
+
             handler.process_seeker_phone(message)
-            
+
             handler.bot.send_message.assert_called()
             assert "уже зарегестрирован" in handler.bot.send_message.call_args[0][1]
-            mock_print.assert_called() # Проверяем вызов print (строка 82)
+            mock_log.assert_called()  # Проверяем вызов logging
 
     def test_process_seeker_phone_invalid(self, handler, message):
         """Test invalid phone number input."""
@@ -78,9 +79,9 @@ class TestSeekerAuth:
              patch('database.execute_query', return_value=None), \
              patch('utils.generate_random_string', return_value="pass"), \
              patch('database.set_user_state') as mock_set:
-            
+
             handler.process_seeker_email(message)
-            
+
             assert mock_set.call_args[0][1]['step'] == 'full_name'
             assert mock_set.call_args[0][1]['registration_data']['email'] == "test@test.uz"
 
@@ -89,9 +90,9 @@ class TestSeekerAuth:
         message.text = "A"
         with patch('database.get_user_state', return_value={'step': 'full_name', 'registration_data': {}}), \
              patch('utils.validate_name', return_value=(False, "❌ Слишком короткое")):
-            
+
             handler.process_seeker_name(message)
-            
+
             handler.bot.send_message.assert_called_with(message.chat.id, "❌ Слишком короткое")
 
     def test_process_seeker_name(self, handler, message):
@@ -99,9 +100,9 @@ class TestSeekerAuth:
         message.text = "John Doe"
         with patch('database.get_user_state', return_value={'step': 'full_name', 'registration_data': {}}), \
              patch('database.set_user_state') as mock_set:
-            
+
             handler.process_seeker_name(message)
-            
+
             assert mock_set.call_args[0][1]['step'] == 'region'
             assert mock_set.call_args[0][1]['registration_data']['full_name'] == "John Doe"
 
@@ -110,9 +111,9 @@ class TestSeekerAuth:
         message.text = "Ташкентская обл."
         with patch('database.get_user_state', return_value={'step': 'region', 'registration_data': {}}), \
              patch('database.set_user_state') as mock_set:
-            
+
             handler.process_seeker_region(message)
-            
+
             assert mock_set.call_args[0][1]['step'] == 'city_selection'
             assert mock_set.call_args[0][1]['registration_data']['region'] == "Ташкентская обл."
 
@@ -122,9 +123,9 @@ class TestSeekerAuth:
         user_state = {'step': 'city_selection', 'registration_data': {'region': 'Ташкентская обл.'}}
         with patch('database.get_user_state', return_value=user_state), \
              patch('database.set_user_state') as mock_set:
-            
+
             handler.process_seeker_city_selection(message)
-            
+
             mock_set.assert_called_once()
             assert mock_set.call_args[0][1]['step'] == 'age'
             assert mock_set.call_args[0][1]['registration_data']['city'] == "Ташкент"
@@ -145,15 +146,15 @@ class TestSeekerAuth:
         """Успешное завершение регистрации"""
         message.text = "25"
         reg_data = {'phone': '1', 'email': '2', 'full_name': '3'}
-        
+
         with patch('database.get_user_state', return_value={'step': 'age', 'registration_data': reg_data}), \
              patch('database.get_user_by_id', return_value=None), \
              patch('database.create_job_seeker', return_value=True), \
              patch('database.clear_user_state') as mock_clear, \
              patch('handlers.profile.ProfileHandlers.start_profile_setup') as mock_profile:
-            
+
             handler.finish_seeker_registration(message)
-            
+
             # Проверяем очистку состояния
             mock_clear.assert_called_with(456)
             # Проверяем запуск настройки профиля
@@ -174,11 +175,11 @@ class TestSeekerAuth:
         message.text = "25"
         reg_data = {'phone': '1', 'email': '2', 'full_name': '3'}
         user_state = {'step': 'age', 'registration_data': reg_data}
-        
+
         with patch('database.get_user_state', return_value=user_state), \
              patch('database.get_user_by_id', return_value=None), \
-             patch('database.create_job_seeker', return_value=False): # Simulate DB failure
-            
+             patch('database.create_job_seeker', return_value=False):  # Simulate DB failure
+
             handler.finish_seeker_registration(message)
             handler.bot.send_message.assert_called()
             assert "Ошибка регистрации" in handler.bot.send_message.call_args[0][1]
@@ -190,12 +191,12 @@ class TestSeekerAuth:
              patch('utils.is_valid_uzbek_phone', return_value=True), \
              patch('utils.format_phone', return_value="+998901234567"), \
              patch('database.execute_query') as mock_query:
-            
+
             # Первый вызов (соискатели) -> None, Второй (работодатели) -> ID
             mock_query.side_effect = [None, {'id': 1}]
-            
+
             handler.process_seeker_phone(message)
-            
+
             handler.bot.send_message.assert_called()
             assert "уже зарегестрирован" in handler.bot.send_message.call_args[0][1]
 
@@ -205,9 +206,9 @@ class TestSeekerAuth:
         with patch('database.get_user_state', return_value={'step': 'email'}), \
              patch('utils.is_valid_email', return_value=True), \
              patch('database.execute_query', return_value={'id': 1}):
-            
+
             handler.process_seeker_email(message)
-            
+
             handler.bot.send_message.assert_called()
             assert "уже зарегестрирован" in handler.bot.send_message.call_args[0][1]
 
@@ -217,9 +218,9 @@ class TestSeekerAuth:
         with patch('database.get_user_state', return_value={'step': 'age'}), \
              patch('database.get_user_by_id', return_value={'id': 1}), \
              patch('database.clear_user_state') as mock_clear:
-            
+
             handler.finish_seeker_registration(message)
-            
+
             mock_clear.assert_called_with(456)
             handler.bot.send_message.assert_called()
             assert "Вы уже зарегистрированы" in handler.bot.send_message.call_args[0][1]
@@ -242,18 +243,18 @@ class TestSeekerAuth:
             ('process_seeker_city_selection', 'city_selection'),
             ('finish_seeker_registration', 'age'),
         ]
-        
+
         with patch('keyboards.main_menu') as mock_menu:
             mock_kb = MagicMock()
             mock_menu.return_value = mock_kb
-            
+
             for method_name, expected_step in steps:
                 with patch('database.get_user_state', return_value={'step': 'wrong_step'}):
                     method = getattr(handler, method_name)
                     method(message)
                     handler.bot.send_message.assert_called_with(
-                        message.chat.id, 
-                        "❌ Сессия истекла!", 
+                        message.chat.id,
+                        "❌ Сессия истекла!",
                         reply_markup=mock_kb
                     )
 
@@ -267,12 +268,12 @@ class TestSeekerAuth:
             ('process_seeker_city_selection', 'city_selection'),
             ('finish_seeker_registration', 'age'),
         ]
-        
+
         message.text = "❌ Отмена"
-        
+
         with patch('utils.cancel_request', return_value=True), \
              patch.object(handler, 'cancel_seeker_registration') as mock_cancel:
-            
+
             for method_name, step in steps:
                 with patch('database.get_user_state', return_value={'step': step}):
                     method = getattr(handler, method_name)
@@ -285,12 +286,12 @@ class TestSeekerAuth:
         message.text = "Invalid Region"
         with patch('database.get_user_state', return_value={'step': 'region'}), \
              patch('utils.cancel_request', return_value=False):
-            
+
             handler.process_seeker_region(message)
-            
+
             handler.bot.send_message.assert_called_with(
-                message.chat.id, 
-                "❌ Пожалуйста, выберите регион из списка:", 
+                message.chat.id,
+                "❌ Пожалуйста, выберите регион из списка:",
                 reply_markup=None
             )
 
@@ -300,12 +301,12 @@ class TestSeekerAuth:
         with patch('database.get_user_state', return_value={'step': 'email'}), \
              patch('utils.is_valid_email', return_value=True), \
              patch('database.execute_query') as mock_query:
-            
+
             # Первый вызов (соискатели) -> None, Второй (работодатели) -> ID
             mock_query.side_effect = [None, {'id': 1}]
-            
+
             handler.process_seeker_email(message)
-            
+
             handler.bot.send_message.assert_called()
             assert "уже зарегестрирован" in handler.bot.send_message.call_args[0][1]
 
@@ -315,8 +316,8 @@ class TestSeekerAuth:
         user_state = {'step': 'city_selection', 'registration_data': {'region': 'Ташкентская обл.'}}
         with patch('database.get_user_state', return_value=user_state), \
              patch('utils.cancel_request', return_value=False):
-            
+
             handler.process_seeker_city_selection(message)
-            
+
             handler.bot.send_message.assert_called()
             assert "выберите город" in handler.bot.send_message.call_args[0][1].lower()

@@ -1,8 +1,9 @@
-﻿# handlers/auth/login_auth.py
+# handlers/auth/login_auth.py
 import database
 import keyboards
 from .login_flow import LoginFlowMixin
 from .recovery_flow import RecoveryFlowMixin
+
 
 class LoginAuth(LoginFlowMixin, RecoveryFlowMixin):
     def __init__(self, bot):

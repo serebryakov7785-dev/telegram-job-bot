@@ -1,8 +1,8 @@
-import pytest
 import sqlite3
 from unittest.mock import patch
 import logging
 import database.schema
+
 
 def test_migration_add_languages_to_seekers(test_db):
     """Test migration that adds the 'languages' column to job_seekers."""
@@ -23,8 +23,9 @@ def test_migration_add_languages_to_seekers(test_db):
     cursor = test_db.cursor()
     cursor.execute("PRAGMA table_info(job_seekers)")
     columns = [row['name'] for row in cursor.fetchall()]
-    
+
     assert 'languages' in columns
+
 
 def test_migration_add_city_to_employers(test_db):
     """Test migration that adds the 'city' column to employers."""
@@ -40,8 +41,9 @@ def test_migration_add_city_to_employers(test_db):
     cursor = test_db.cursor()
     cursor.execute("PRAGMA table_info(employers)")
     columns = [row['name'] for row in cursor.fetchall()]
-    
+
     assert 'city' in columns
+
 
 def test_init_database_exception_handling(caplog):
     """Test that init_database handles exceptions gracefully."""
