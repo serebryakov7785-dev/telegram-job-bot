@@ -1,6 +1,6 @@
 [README.md](https://github.com/user-attachments/files/25073107/README.md)
 [README.md](https://github.com/user-attachments/files/25073107/README.md)
-# Telegram Job Bot 🇺🇿
+# Telegram Job Bot 🇺🇿 https://t.me/Uzbekistan_job_bot
 
 [English](#english) | [Русский](#russian)
 
@@ -85,6 +85,8 @@ python bot.py
 
 <a name="russian"></a>
 ## 🇷🇺 Русский
+
+https://t.me/Uzbekistan_job_bot
 
 **Telegram Job Bot** — это полноценное решение для поиска работы и найма сотрудников в Узбекистане, работающее прямо в Telegram. Бот соединяет соискателей и работодателей, предоставляя удобный интерфейс для создания резюме, публикации вакансий и управления процессом найма.
 
