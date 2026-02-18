@@ -1,0 +1,155 @@
+import io
+import json
+import os
+
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.platypus import (
+    HRFlowable,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
+
+from localization import get_text_by_lang
+
+
+def register_fonts():
+    """Регистрация шрифтов с поддержкой кириллицы"""
+    font_name = 'Helvetica' # Стандартный шрифт (не поддерживает кириллицу)
+    
+    # Пути к шрифтам (приоритет: локальная папка -> системные пути Linux)
+    possible_paths = [
+        'fonts/DejaVuSans.ttf',
+        'DejaVuSans.ttf',
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+        '/usr/share/fonts/TTF/DejaVuSans.ttf'
+    ]
+    
+    for path in possible_paths:
+        if os.path.exists(path):
+            try:
+                pdfmetrics.registerFont(TTFont('DejaVuSans', path))
+                font_name = 'DejaVuSans'
+                break
+            except Exception:
+                continue
+                
+    return font_name
+
+def generate_resume_pdf(user_data, lang='ru'):
+    """Генерация PDF резюме"""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=40, leftMargin=40,
+        topMargin=40, bottomMargin=40
+    )
+    
+    font_name = register_fonts()
+    styles = getSampleStyleSheet()
+    
+    # Стили
+    style_title = ParagraphStyle(
+        'ResumeTitle', 
+        parent=styles['Heading1'], 
+        fontName=font_name, 
+        fontSize=24, 
+        spaceAfter=20, 
+        textColor=colors.darkblue
+    )
+    style_heading = ParagraphStyle(
+        'ResumeHeading', 
+        parent=styles['Heading2'], 
+        fontName=font_name, 
+        fontSize=14, 
+        spaceBefore=15, 
+        spaceAfter=10,
+        textColor=colors.HexColor('#2c3e50'),
+        borderPadding=(0, 0, 5, 0) # Линия снизу
+    )
+    style_body = ParagraphStyle(
+        'ResumeBody', 
+        parent=styles['Normal'], 
+        fontName=font_name, 
+        fontSize=10, 
+        leading=14
+    )
+    style_small = ParagraphStyle(
+        'ResumeSmall', 
+        parent=styles['Normal'], 
+        fontName=font_name, 
+        fontSize=9, 
+        textColor=colors.grey
+    )
+
+    story = []
+
+    # --- Заголовок (Имя) ---
+    full_name = user_data.get('full_name', 'Candidate')
+    story.append(Paragraph(full_name, style_title))
+    
+    # --- Контакты ---
+    contact_data = [
+        [f"📞 {user_data.get('phone', '')}", f"📧 {user_data.get('email', '')}"],
+        [f"🏙 {user_data.get('city', '')}", f"📅 {user_data.get('age', '')} лет/years"]
+    ]
+    t = Table(contact_data, colWidths=[250, 250])
+    t.setStyle(TableStyle([
+        ('FONTNAME', (0,0), (-1,-1), font_name),
+        ('TEXTCOLOR', (0,0), (-1,-1), colors.darkgrey),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 10),
+    ]))
+    story.append(t)
+    story.append(HRFlowable(width="100%", thickness=1, color=colors.lightgrey, spaceBefore=5, spaceAfter=15))
+
+    # --- Профессия ---
+    prof = user_data.get('profession', '')
+    # Переводим, если это ключ
+    if prof and prof.startswith('prof_'):
+        prof = get_text_by_lang(prof, lang)
+    story.append(Paragraph("ПРОФЕССИЯ / PROFESSION", style_heading))
+    story.append(Paragraph(prof, style_body))
+
+    # --- Опыт работы ---
+    story.append(Paragraph("ОПЫТ РАБОТЫ / EXPERIENCE", style_heading))
+    story.append(Paragraph(user_data.get('experience', 'Нет опыта'), style_body))
+
+    # --- Образование ---
+    story.append(Paragraph("ОБРАЗОВАНИЕ / EDUCATION", style_heading))
+    story.append(Paragraph(user_data.get('education', 'Не указано'), style_body))
+
+    # --- Навыки ---
+    story.append(Paragraph("НАВЫКИ / SKILLS", style_heading))
+    story.append(Paragraph(user_data.get('skills', 'Не указаны'), style_body))
+
+    # --- Языки ---
+    langs = user_data.get('languages', 'Не указаны')
+    try:
+        if isinstance(langs, str) and langs.startswith('['):
+            l_list = json.loads(langs)
+            parts = []
+            for item in l_list:
+                name = item.get('lang_name') or item.get('lang_key', 'Unknown')
+                level = item.get('level_key', '')
+                parts.append(f"{name} - {level}")
+            langs = ", ".join(parts)
+    except:
+        pass
+        
+    story.append(Paragraph("ЯЗЫКИ / LANGUAGES", style_heading))
+    story.append(Paragraph(langs, style_body))
+
+    # --- Footer ---
+    story.append(Spacer(1, 30))
+    story.append(Paragraph(f"Generated by Telegram Job Bot • {user_data.get('phone', '')}", style_small))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer

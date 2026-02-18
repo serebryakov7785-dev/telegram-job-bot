@@ -1,0 +1,52 @@
+name: Python CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Добавим Python 3.10 для более широкого покрытия
+        python-version: ["3.8", "3.9", "3.10"]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        # Устанавливаем зависимости из requirements.txt
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        # Явно устанавливаем инструменты для форматирования, линтинга и тестирования
+        pip install flake8 bandit pytest pytest-cov
+
+    - name: Lint with flake8
+      run: |
+        # Проверяем стиль кода и останавливаем сборку при ошибках (как в lint.bat)
+        flake8 . --count --max-complexity=10 --max-line-length=127 --statistics
+
+    - name: Security check with Bandit
+      run: |
+        # Ищем распространенные уязвимости в коде
+        bandit -r . -x ./tests -ll
+
+    - name: Run Tests with Pytest
+      env:
+        # Устанавливаем переменные окружения, необходимые для тестов
+        TELEGRAM_BOT_TOKEN: "123:test_token"
+        ADMIN_IDS: "123456"
+      run: |
+        # Запускаем тесты и проверяем покрытие кода
+        python -m pytest --cov=.

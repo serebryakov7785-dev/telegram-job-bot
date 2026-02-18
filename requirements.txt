@@ -1,0 +1,8 @@
+pyTelegramBotAPI
+python-dotenv
+reportlab
+prometheus-client
+sentry-sdk
+flask
+pytest
+pytest-cov

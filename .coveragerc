@@ -1,0 +1,10 @@
+[run]
+omit =
+    tests/*
+    conftest.py
+    */__init__.py
+    handlers/auth/core.py
+    handlers/auth/schema.py
+    handlers/auth/users.py
+    # Пример исключения миграций (если появятся)
+    */migrations/*

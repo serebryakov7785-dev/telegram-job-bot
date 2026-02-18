@@ -1,0 +1,2 @@
+class LoginFlowMixin:
+    pass

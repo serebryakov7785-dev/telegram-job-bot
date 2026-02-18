@@ -1,0 +1,9 @@
+black==23.12.1
+isort==5.13.2
+mypy==1.8.0
+types-requests==2.31.0.20240125
+pre-commit==3.6.0
+pytest==8.0.0
+pytest-cov==4.1.0
+flake8==7.0.0
+bandit==1.7.7
